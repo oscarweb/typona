@@ -52,6 +52,7 @@ export default function App() {
   const [dialog, setDialog] = useState(null)
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [recents, setRecents] = useState([])
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -66,6 +67,10 @@ export default function App() {
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
+
+  useEffect(() => {
+    window.typona.getRecents().then(setRecents).catch(() => {})
+  }, [])
 
   const handleSave = useCallback(async () => {
     const path = activePathRef.current
@@ -145,6 +150,8 @@ export default function App() {
       draftsRef.current.clear()
       setFolderPath(nextFolderPath)
       setTree(nextTree)
+      const updatedRecents = await window.typona.addRecent({ path: nextFolderPath, type: 'dir' })
+      setRecents(updatedRecents)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
@@ -188,6 +195,11 @@ export default function App() {
           return merged
         })
         await openFile(paths[0])
+        let updatedRecents
+        for (const path of paths) {
+          updatedRecents = await window.typona.addRecent({ path, type: 'file' })
+        }
+        if (updatedRecents) setRecents(updatedRecents)
       } catch (err) {
         setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
       }
@@ -203,6 +215,17 @@ export default function App() {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
   }, [addLooseFiles])
+
+  const openRecent = useCallback(
+    async (entry) => {
+      if (entry.type === 'dir') {
+        await openFolderPath(entry.path)
+      } else {
+        await addLooseFiles([entry.path])
+      }
+    },
+    [openFolderPath, addLooseFiles]
+  )
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault()
