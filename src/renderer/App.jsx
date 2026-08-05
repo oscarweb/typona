@@ -149,37 +149,59 @@ export default function App() {
     }
   }, [])
 
+  const openFolderPath = useCallback(
+    async (nextFolderPath) => {
+      try {
+        const hasExistingContent = tree !== null || looseFiles.length > 0
+        if (hasExistingContent) {
+          await window.typona.openFolderInNewWindow(nextFolderPath)
+          return
+        }
+        await loadFolder(nextFolderPath)
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
+      }
+    },
+    [tree, looseFiles, loadFolder]
+  )
+
   const openFolder = useCallback(async () => {
     try {
       const nextFolderPath = await window.typona.openFolder()
       if (!nextFolderPath) return
-      const hasExistingContent = tree !== null || looseFiles.length > 0
-      if (hasExistingContent) {
-        await window.typona.openFolderInNewWindow(nextFolderPath)
-        return
-      }
-      await loadFolder(nextFolderPath)
+      await openFolderPath(nextFolderPath)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
-  }, [tree, looseFiles, loadFolder])
+  }, [openFolderPath])
+
+  const addLooseFiles = useCallback(
+    async (paths) => {
+      if (!paths || paths.length === 0) return
+      try {
+        setLooseFiles((prev) => {
+          const merged = [...prev]
+          for (const path of paths) {
+            if (!merged.includes(path)) merged.push(path)
+          }
+          return merged
+        })
+        await openFile(paths[0])
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
+      }
+    },
+    [openFile]
+  )
 
   const openFilesDialog = useCallback(async () => {
     try {
       const paths = await window.typona.openFile()
-      if (!paths || paths.length === 0) return
-      setLooseFiles((prev) => {
-        const merged = [...prev]
-        for (const path of paths) {
-          if (!merged.includes(path)) merged.push(path)
-        }
-        return merged
-      })
-      await openFile(paths[0])
+      await addLooseFiles(paths)
     } catch (err) {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
-  }, [openFile])
+  }, [addLooseFiles])
 
   const refreshTree = useCallback(async (rootPath) => {
     const path = rootPath ?? folderPath
