@@ -297,6 +297,11 @@
   background: var(--code-bg);
   border: 1px solid var(--sidebar-border);
   border-radius: 4px;
+  outline: none;
+}
+
+.recent-search:focus {
+  border-color: var(--link-color);
 }
 
 .recent-list ul {
