@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { FileIcon, FolderIcon, SearchIcon } from './Icons.jsx'
 
 const VISIBLE_BY_DEFAULT = 10
+const MIN_TO_SHOW_SEARCH = 2
 
 function formatRelativeTime(timestamp) {
   const diffSec = Math.floor((Date.now() - timestamp) / 1000)
@@ -50,7 +51,7 @@ export default function RecentList({ recents, onOpen }) {
     <div className="recent-list">
       <h2>Recientes</h2>
 
-      {recents.length > VISIBLE_BY_DEFAULT && (
+      {recents.length > MIN_TO_SHOW_SEARCH && (
         <div className="recent-search-wrap">
           <SearchIcon />
           <input
