@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('typona', {
   rename: (oldPath, newName) => ipcRenderer.invoke('fs:rename', oldPath, newName),
   deleteEntry: (targetPath, isDirectory) => ipcRenderer.invoke('fs:delete', targetPath, isDirectory),
   openLink: (href, basePath) => ipcRenderer.invoke('shell:openLink', href, basePath),
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
 
   onMenuOpenFolder: (callback) => {
     const listener = () => callback()
