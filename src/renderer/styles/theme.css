@@ -1,0 +1,177 @@
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+
+  --bg-color: #282c34;
+  --text-color: #abb2bf;
+  --text-muted: #7f848e;
+  --border-color: #3a3f4b;
+  --link-color: #61afef;
+  --code-bg: #21252b;
+  --blockquote-color: #7f848e;
+
+  --sidebar-bg: #21252b;
+  --sidebar-border: #181a1f;
+  --sidebar-text: #9da5b4;
+  --sidebar-active-bg: #2c313a;
+  --sidebar-heading: #6b7280;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text-color);
+  font-family: var(--sans);
+  background: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 5px;
+}
+
+.editor-content {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-color);
+}
+
+.editor-content h1,
+.editor-content h2,
+.editor-content h3,
+.editor-content h4,
+.editor-content h5,
+.editor-content h6 {
+  font-weight: 600;
+  margin: 1.4em 0 0.6em;
+  line-height: 1.3;
+}
+
+.editor-content h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.editor-content h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.editor-content h3 {
+  font-size: 1.25em;
+}
+
+.editor-content h4 {
+  font-size: 1.1em;
+}
+
+.editor-content h5 {
+  font-size: 1em;
+}
+
+.editor-content h6 {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.editor-content p {
+  margin: 0.8em 0;
+}
+
+.editor-content a {
+  color: var(--link-color);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.editor-content a:hover {
+  text-decoration: underline;
+}
+
+.editor-content strong {
+  font-weight: 600;
+}
+
+.editor-content blockquote {
+  margin: 0.8em 0;
+  padding: 0 1em;
+  color: var(--blockquote-color);
+  border-left: 4px solid var(--border-color);
+}
+
+.editor-content code {
+  font-family: var(--mono);
+  background: var(--code-bg);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.editor-content pre {
+  background: var(--code-bg);
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.editor-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.editor-content ul,
+.editor-content ol {
+  padding-left: 1.6em;
+  margin: 0.6em 0;
+}
+
+.editor-content li {
+  margin: 0.25em 0;
+}
+
+.editor-content table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
+
+.editor-content th,
+.editor-content td {
+  border: 1px solid var(--border-color);
+  padding: 0.5em 0.8em;
+}
+
+.editor-content th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+.editor-content hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2em 0;
+}
+
+.editor-content img {
+  max-width: 100%;
+}
+
+.editor-content .ProseMirror {
+  outline: none;
+}

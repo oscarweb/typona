@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="#282c34"/>
+  <rect x="0.5" y="0.5" width="1023" height="1023" rx="223.5" fill="none" stroke="#181a1f" stroke-width="1"/>
+
+  <!-- text lines, behind the T, hinting at a document -->
+  <g fill="#2f343e">
+    <rect x="140" y="328" width="744" height="42" rx="21"/>
+    <rect x="140" y="427" width="744" height="42" rx="21"/>
+    <rect x="140" y="526" width="660" height="42" rx="21"/>
+    <rect x="140" y="625" width="744" height="42" rx="21"/>
+    <rect x="140" y="724" width="420" height="42" rx="21"/>
+  </g>
+
+  <!-- simple geometric T -->
+  <g fill="#61afef">
+    <rect x="212" y="218" width="600" height="120" rx="24"/>
+    <rect x="442" y="218" width="140" height="560" rx="24"/>
+  </g>
+</svg>

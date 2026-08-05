@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Builds
+out/
+dist/
+build/icon.iconset/
+
+# Sistema
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Entorno / local
+.env
+.env.local
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Claude Code (config local, no compartida)
+.claude/
+
+# Documentación interna, no pública
+docs/

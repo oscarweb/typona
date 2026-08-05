@@ -1,0 +1,71 @@
+{
+  "name": "typona",
+  "productName": "Typona",
+  "version": "0.1.0",
+  "description": "Editor y lector de Markdown WYSIWYG para macOS, Windows y Linux",
+  "author": "oscarweb <hola@oscarweb.ar>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oscarweb/typona.git"
+  },
+  "homepage": "https://github.com/oscarweb/typona#readme",
+  "bugs": {
+    "url": "https://github.com/oscarweb/typona/issues"
+  },
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder --publish=never",
+    "postdist": "./scripts/set-dmg-icon.sh"
+  },
+  "dependencies": {
+    "@milkdown/core": "^7.5.0",
+    "@milkdown/plugin-history": "^7.22.0",
+    "@milkdown/plugin-listener": "^7.22.0",
+    "@milkdown/preset-commonmark": "^7.5.0",
+    "@milkdown/preset-gfm": "^7.5.0",
+    "@milkdown/prose": "^7.5.0",
+    "@milkdown/react": "^7.5.0",
+    "@milkdown/utils": "^7.22.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^2.3.0",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.typona.app",
+    "productName": "Typona",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Office"
+    }
+  }
+}
