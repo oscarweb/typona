@@ -1,7 +1,7 @@
 {
   "name": "typona",
   "productName": "Typona",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Editor y lector de Markdown WYSIWYG para macOS, Windows y Linux",
   "author": "oscarweb <hola@oscarweb.ar>",
   "license": "MIT",
