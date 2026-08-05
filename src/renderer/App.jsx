@@ -4,6 +4,7 @@ import MilkdownEditor from './components/Editor.jsx'
 import StatusBar from './components/StatusBar.jsx'
 import PromptDialog from './components/PromptDialog.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
+import RecentList from './components/RecentList.jsx'
 import { joinRelative } from './pathUtils.js'
 
 function parseHeadings(markdown) {
@@ -544,6 +545,8 @@ export default function App() {
             </div>
             <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} />
           </>
+        ) : tree === null && looseFiles.length === 0 ? (
+          <RecentList recents={recents} onOpen={openRecent} />
         ) : (
           <div className="editor-placeholder">Abrí una carpeta y seleccioná un archivo .md para empezar</div>
         )}
