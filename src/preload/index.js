@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('typona', {
   openFolderInNewWindow: (folderPath) => ipcRenderer.invoke('window:openFolderInNewWindow', folderPath),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   statPath: (targetPath) => ipcRenderer.invoke('fs:statPath', targetPath),
+  getRecents: () => ipcRenderer.invoke('recent:get'),
+  addRecent: (entry) => ipcRenderer.invoke('recent:add', entry),
   readTree: (folderPath) => ipcRenderer.invoke('fs:readTree', folderPath),
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   saveFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', filePath, content),

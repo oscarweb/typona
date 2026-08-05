@@ -4,6 +4,7 @@ import MilkdownEditor from './components/Editor.jsx'
 import StatusBar from './components/StatusBar.jsx'
 import PromptDialog from './components/PromptDialog.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
+import RecentList from './components/RecentList.jsx'
 import { joinRelative } from './pathUtils.js'
 
 function parseHeadings(markdown) {
@@ -52,6 +53,7 @@ export default function App() {
   const [dialog, setDialog] = useState(null)
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [recents, setRecents] = useState([])
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -66,6 +68,10 @@ export default function App() {
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
+
+  useEffect(() => {
+    window.typona.getRecents().then(setRecents).catch(() => {})
+  }, [])
 
   const handleSave = useCallback(async () => {
     const path = activePathRef.current
@@ -145,6 +151,8 @@ export default function App() {
       draftsRef.current.clear()
       setFolderPath(nextFolderPath)
       setTree(nextTree)
+      const updatedRecents = await window.typona.addRecent({ path: nextFolderPath, type: 'dir' })
+      setRecents(updatedRecents)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
@@ -188,6 +196,11 @@ export default function App() {
           return merged
         })
         await openFile(paths[0])
+        let updatedRecents
+        for (const path of paths) {
+          updatedRecents = await window.typona.addRecent({ path, type: 'file' })
+        }
+        if (updatedRecents) setRecents(updatedRecents)
       } catch (err) {
         setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
       }
@@ -203,6 +216,17 @@ export default function App() {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
   }, [addLooseFiles])
+
+  const openRecent = useCallback(
+    async (entry) => {
+      if (entry.type === 'dir') {
+        await openFolderPath(entry.path)
+      } else {
+        await addLooseFiles([entry.path])
+      }
+    },
+    [openFolderPath, addLooseFiles]
+  )
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault()
@@ -521,6 +545,8 @@ export default function App() {
             </div>
             <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} />
           </>
+        ) : tree === null && looseFiles.length === 0 ? (
+          <RecentList recents={recents} onOpen={openRecent} />
         ) : (
           <div className="editor-placeholder">Abrí una carpeta y seleccioná un archivo .md para empezar</div>
         )}
