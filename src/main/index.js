@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, nativeImage, protocol, net, screen }
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { registerFsHandlers } from './fs.js'
+import { registerRecentHandlers } from './recent.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appIcon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'))
@@ -147,6 +148,7 @@ app.whenReady().then(() => {
   })
 
   registerFsHandlers()
+  registerRecentHandlers()
   buildMenu()
   createWindow()
 
