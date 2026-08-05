@@ -54,6 +54,7 @@ export default function App() {
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [recents, setRecents] = useState([])
+  const [updateInfo, setUpdateInfo] = useState(null)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -71,6 +72,15 @@ export default function App() {
 
   useEffect(() => {
     window.typona.getRecents().then(setRecents).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    window.typona
+      .checkForUpdate()
+      .then((result) => {
+        if (result?.hasUpdate) setUpdateInfo(result)
+      })
+      .catch(() => {})
   }, [])
 
   const handleSave = useCallback(async () => {
@@ -525,6 +535,17 @@ export default function App() {
       />
 
       <div className="editor-pane">
+        {updateInfo && (
+          <div className="update-banner">
+            <span>
+              Hay una versión nueva disponible (v{updateInfo.latestVersion}) —{' '}
+              <button className="update-banner-link" onClick={() => window.typona.openLink(updateInfo.url)}>
+                Ver Release
+              </button>
+            </span>
+            <button onClick={() => setUpdateInfo(null)}>✕</button>
+          </div>
+        )}
         {errorMessage && (
           <div className="error-banner">
             <span>{errorMessage}</span>
