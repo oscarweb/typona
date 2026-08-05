@@ -106,7 +106,7 @@ function buildMenu() {
       label: 'Ver',
       submenu: [
         { role: 'reload' },
-        { role: 'toggleDevTools' }
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' }])
       ]
     }
   ]
