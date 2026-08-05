@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { registerFsHandlers } from './fs.js'
 import { registerRecentHandlers } from './recent.js'
+import { registerUpdateHandlers } from './update.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appIcon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'))
@@ -149,6 +150,7 @@ app.whenReady().then(() => {
 
   registerFsHandlers()
   registerRecentHandlers()
+  registerUpdateHandlers()
   buildMenu()
   createWindow()
 
