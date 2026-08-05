@@ -18,9 +18,9 @@ Typona te deja abrir una carpeta o archivos `.md` sueltos y editarlos viendo el 
 
 ## Instalación
 
-> El proyecto todavía no tiene releases publicados. Mientras tanto, podés correrlo desde el código fuente siguiendo la sección [Desarrollo](#desarrollo).
+Descargá la última versión desde la sección [Releases](../../releases) de este repositorio (por ahora solo hay build para macOS).
 
-Cuando haya versiones publicadas, vas a poder descargarlas desde la sección [Releases](../../releases) de este repositorio. Como la app no está firmada ni notarizada (no requiere cuenta de desarrollador de Apple), macOS va a advertir la primera vez que la abras: hacé **clic derecho → Abrir** para saltear esa advertencia de Gatekeeper.
+La app no está firmada ni notarizada (no tiene cuenta de desarrollador de Apple), así que macOS va a mostrar un aviso de seguridad la primera vez que la abras. Es esperado — ver [INSTALL.md](INSTALL.md) para el paso a paso de cómo instalarla y desbloquearla.
 
 ## Desarrollo
 
