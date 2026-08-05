@@ -1,9 +1,11 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('typona', {
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
   openFolderInNewWindow: (folderPath) => ipcRenderer.invoke('window:openFolderInNewWindow', folderPath),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+  statPath: (targetPath) => ipcRenderer.invoke('fs:statPath', targetPath),
   readTree: (folderPath) => ipcRenderer.invoke('fs:readTree', folderPath),
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   saveFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', filePath, content),

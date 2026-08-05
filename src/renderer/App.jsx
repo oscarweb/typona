@@ -51,6 +51,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState(null)
   const [dialog, setDialog] = useState(null)
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -149,37 +150,105 @@ export default function App() {
     }
   }, [])
 
+  const openFolderPath = useCallback(
+    async (nextFolderPath) => {
+      try {
+        const hasExistingContent = tree !== null || looseFiles.length > 0
+        if (hasExistingContent) {
+          await window.typona.openFolderInNewWindow(nextFolderPath)
+          return
+        }
+        await loadFolder(nextFolderPath)
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
+      }
+    },
+    [tree, looseFiles, loadFolder]
+  )
+
   const openFolder = useCallback(async () => {
     try {
       const nextFolderPath = await window.typona.openFolder()
       if (!nextFolderPath) return
-      const hasExistingContent = tree !== null || looseFiles.length > 0
-      if (hasExistingContent) {
-        await window.typona.openFolderInNewWindow(nextFolderPath)
-        return
-      }
-      await loadFolder(nextFolderPath)
+      await openFolderPath(nextFolderPath)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
-  }, [tree, looseFiles, loadFolder])
+  }, [openFolderPath])
+
+  const addLooseFiles = useCallback(
+    async (paths) => {
+      if (!paths || paths.length === 0) return
+      try {
+        setLooseFiles((prev) => {
+          const merged = [...prev]
+          for (const path of paths) {
+            if (!merged.includes(path)) merged.push(path)
+          }
+          return merged
+        })
+        await openFile(paths[0])
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
+      }
+    },
+    [openFile]
+  )
 
   const openFilesDialog = useCallback(async () => {
     try {
       const paths = await window.typona.openFile()
-      if (!paths || paths.length === 0) return
-      setLooseFiles((prev) => {
-        const merged = [...prev]
-        for (const path of paths) {
-          if (!merged.includes(path)) merged.push(path)
-        }
-        return merged
-      })
-      await openFile(paths[0])
+      await addLooseFiles(paths)
     } catch (err) {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
-  }, [openFile])
+  }, [addLooseFiles])
+
+  const handleDragOver = useCallback((event) => {
+    event.preventDefault()
+    setIsDraggingOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((event) => {
+    if (event.target === event.currentTarget) setIsDraggingOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    async (event) => {
+      event.preventDefault()
+      setIsDraggingOver(false)
+
+      const droppedPaths = Array.from(event.dataTransfer.files)
+        .map((file) => window.typona.getPathForFile(file))
+        .filter(Boolean)
+      if (droppedPaths.length === 0) return
+
+      const mdFiles = []
+      const folders = []
+      for (const droppedPath of droppedPaths) {
+        try {
+          const { isDirectory } = await window.typona.statPath(droppedPath)
+          if (isDirectory) folders.push(droppedPath)
+          else if (/\.(md|markdown)$/i.test(droppedPath)) mdFiles.push(droppedPath)
+        } catch (err) {
+          setErrorMessage(`No se pudo leer "${droppedPath}": ${err.message}`)
+        }
+      }
+
+      await addLooseFiles(mdFiles)
+
+      const [firstFolder, ...restFolders] = folders
+      if (firstFolder) await openFolderPath(firstFolder)
+      for (const folderPath of restFolders) {
+        try {
+          await window.typona.openFolderInNewWindow(folderPath)
+        } catch (err) {
+          setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
+        }
+      }
+    },
+    [addLooseFiles, openFolderPath]
+  )
 
   const refreshTree = useCallback(async (rootPath) => {
     const path = rootPath ?? folderPath
@@ -400,7 +469,17 @@ export default function App() {
   }, [headings, activePath])
 
   return (
-    <div className="app">
+    <div
+      className={`app${isDraggingOver ? ' app--drag-over' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && (
+        <div className="drop-overlay">
+          <span>Soltá para abrir</span>
+        </div>
+      )}
       <Sidebar
         tab={sidebarTab}
         onTabChange={setSidebarTab}

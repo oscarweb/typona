@@ -73,6 +73,14 @@ export function registerFsHandlers() {
   )
 
   ipcMain.handle(
+    'fs:statPath',
+    wrap(async (_event, targetPath) => {
+      const stats = await fs.stat(targetPath)
+      return { isDirectory: stats.isDirectory() }
+    }, 'No se pudo leer la ruta')
+  )
+
+  ipcMain.handle(
     'fs:readTree',
     wrap((_event, folderPath) => buildTree(folderPath), 'No se pudo leer la carpeta')
   )
