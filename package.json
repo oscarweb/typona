@@ -50,6 +50,7 @@
     "files": [
       "out/**/*"
     ],
+    "afterSign": "scripts/afterSign.cjs",
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns",
