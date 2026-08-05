@@ -300,10 +300,6 @@
   outline: none;
 }
 
-.recent-search:focus {
-  border-color: var(--link-color);
-}
-
 .recent-list ul {
   list-style: none;
   margin: 0;
