@@ -14,10 +14,10 @@ export default function OpenFiles({ files, activePath, isDirty, onOpenFile, onRe
       x: event.clientX,
       y: event.clientY,
       items: [
-        { label: 'Renombrar…', onClick: () => onRename(node) },
-        { label: 'Eliminar archivo', danger: true, onClick: () => onDelete(node) },
+        { label: 'Quitar de la lista', onClick: () => onRemove(filePath) },
         { separator: true },
-        { label: 'Quitar de la lista', onClick: () => onRemove(filePath) }
+        { label: 'Renombrar…', onClick: () => onRename(node) },
+        { label: 'Eliminar archivo', danger: true, onClick: () => onDelete(node) }
       ]
     })
   }
