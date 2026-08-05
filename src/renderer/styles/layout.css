@@ -274,9 +274,23 @@
   letter-spacing: 0.04em;
 }
 
-.recent-search {
+.recent-search-wrap {
+  position: relative;
   margin-bottom: 12px;
-  padding: 6px 8px;
+}
+
+.recent-search-wrap svg {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sidebar-heading);
+  pointer-events: none;
+}
+
+.recent-search {
+  width: 100%;
+  padding: 6px 8px 6px 28px;
   font-size: 13px;
   font-family: var(--sans);
   color: var(--text-color);
@@ -327,6 +341,12 @@
   white-space: nowrap;
   color: var(--sidebar-heading);
   font-size: 12px;
+}
+
+.recent-time {
+  flex-shrink: 0;
+  color: var(--sidebar-heading);
+  font-size: 11px;
 }
 
 .recent-hint {
