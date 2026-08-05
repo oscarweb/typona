@@ -1,9 +1,13 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('typona', {
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
   openFolderInNewWindow: (folderPath) => ipcRenderer.invoke('window:openFolderInNewWindow', folderPath),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+  statPath: (targetPath) => ipcRenderer.invoke('fs:statPath', targetPath),
+  getRecents: () => ipcRenderer.invoke('recent:get'),
+  addRecent: (entry) => ipcRenderer.invoke('recent:add', entry),
   readTree: (folderPath) => ipcRenderer.invoke('fs:readTree', folderPath),
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   saveFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', filePath, content),
@@ -12,6 +16,7 @@ contextBridge.exposeInMainWorld('typona', {
   rename: (oldPath, newName) => ipcRenderer.invoke('fs:rename', oldPath, newName),
   deleteEntry: (targetPath, isDirectory) => ipcRenderer.invoke('fs:delete', targetPath, isDirectory),
   openLink: (href, basePath) => ipcRenderer.invoke('shell:openLink', href, basePath),
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
 
   onMenuOpenFolder: (callback) => {
     const listener = () => callback()

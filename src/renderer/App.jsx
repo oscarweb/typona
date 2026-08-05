@@ -4,6 +4,7 @@ import MilkdownEditor from './components/Editor.jsx'
 import StatusBar from './components/StatusBar.jsx'
 import PromptDialog from './components/PromptDialog.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
+import RecentList from './components/RecentList.jsx'
 import { joinRelative } from './pathUtils.js'
 
 function parseHeadings(markdown) {
@@ -51,6 +52,9 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState(null)
   const [dialog, setDialog] = useState(null)
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [recents, setRecents] = useState([])
+  const [updateInfo, setUpdateInfo] = useState(null)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -65,6 +69,19 @@ export default function App() {
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
+
+  useEffect(() => {
+    window.typona.getRecents().then(setRecents).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    window.typona
+      .checkForUpdate()
+      .then((result) => {
+        if (result?.hasUpdate) setUpdateInfo(result)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSave = useCallback(async () => {
     const path = activePathRef.current
@@ -144,42 +161,128 @@ export default function App() {
       draftsRef.current.clear()
       setFolderPath(nextFolderPath)
       setTree(nextTree)
+      const updatedRecents = await window.typona.addRecent({ path: nextFolderPath, type: 'dir' })
+      setRecents(updatedRecents)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
   }, [])
 
+  const openFolderPath = useCallback(
+    async (nextFolderPath) => {
+      try {
+        const hasExistingContent = tree !== null || looseFiles.length > 0
+        if (hasExistingContent) {
+          await window.typona.openFolderInNewWindow(nextFolderPath)
+          return
+        }
+        await loadFolder(nextFolderPath)
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
+      }
+    },
+    [tree, looseFiles, loadFolder]
+  )
+
   const openFolder = useCallback(async () => {
     try {
       const nextFolderPath = await window.typona.openFolder()
       if (!nextFolderPath) return
-      const hasExistingContent = tree !== null || looseFiles.length > 0
-      if (hasExistingContent) {
-        await window.typona.openFolderInNewWindow(nextFolderPath)
-        return
-      }
-      await loadFolder(nextFolderPath)
+      await openFolderPath(nextFolderPath)
     } catch (err) {
       setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
     }
-  }, [tree, looseFiles, loadFolder])
+  }, [openFolderPath])
+
+  const addLooseFiles = useCallback(
+    async (paths) => {
+      if (!paths || paths.length === 0) return
+      try {
+        setLooseFiles((prev) => {
+          const merged = [...prev]
+          for (const path of paths) {
+            if (!merged.includes(path)) merged.push(path)
+          }
+          return merged
+        })
+        await openFile(paths[0])
+        let updatedRecents
+        for (const path of paths) {
+          updatedRecents = await window.typona.addRecent({ path, type: 'file' })
+        }
+        if (updatedRecents) setRecents(updatedRecents)
+      } catch (err) {
+        setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
+      }
+    },
+    [openFile]
+  )
 
   const openFilesDialog = useCallback(async () => {
     try {
       const paths = await window.typona.openFile()
-      if (!paths || paths.length === 0) return
-      setLooseFiles((prev) => {
-        const merged = [...prev]
-        for (const path of paths) {
-          if (!merged.includes(path)) merged.push(path)
-        }
-        return merged
-      })
-      await openFile(paths[0])
+      await addLooseFiles(paths)
     } catch (err) {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
-  }, [openFile])
+  }, [addLooseFiles])
+
+  const openRecent = useCallback(
+    async (entry) => {
+      if (entry.type === 'dir') {
+        await openFolderPath(entry.path)
+      } else {
+        await addLooseFiles([entry.path])
+      }
+    },
+    [openFolderPath, addLooseFiles]
+  )
+
+  const handleDragOver = useCallback((event) => {
+    event.preventDefault()
+    setIsDraggingOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((event) => {
+    if (event.target === event.currentTarget) setIsDraggingOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    async (event) => {
+      event.preventDefault()
+      setIsDraggingOver(false)
+
+      const droppedPaths = Array.from(event.dataTransfer.files)
+        .map((file) => window.typona.getPathForFile(file))
+        .filter(Boolean)
+      if (droppedPaths.length === 0) return
+
+      const mdFiles = []
+      const folders = []
+      for (const droppedPath of droppedPaths) {
+        try {
+          const { isDirectory } = await window.typona.statPath(droppedPath)
+          if (isDirectory) folders.push(droppedPath)
+          else if (/\.(md|markdown)$/i.test(droppedPath)) mdFiles.push(droppedPath)
+        } catch (err) {
+          setErrorMessage(`No se pudo leer "${droppedPath}": ${err.message}`)
+        }
+      }
+
+      await addLooseFiles(mdFiles)
+
+      const [firstFolder, ...restFolders] = folders
+      if (firstFolder) await openFolderPath(firstFolder)
+      for (const folderPath of restFolders) {
+        try {
+          await window.typona.openFolderInNewWindow(folderPath)
+        } catch (err) {
+          setErrorMessage(`No se pudo abrir la carpeta: ${err.message}`)
+        }
+      }
+    },
+    [addLooseFiles, openFolderPath]
+  )
 
   const refreshTree = useCallback(async (rootPath) => {
     const path = rootPath ?? folderPath
@@ -400,7 +503,17 @@ export default function App() {
   }, [headings, activePath])
 
   return (
-    <div className="app">
+    <div
+      className={`app${isDraggingOver ? ' app--drag-over' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && (
+        <div className="drop-overlay">
+          <span>Soltá para abrir</span>
+        </div>
+      )}
       <Sidebar
         tab={sidebarTab}
         onTabChange={setSidebarTab}
@@ -422,6 +535,17 @@ export default function App() {
       />
 
       <div className="editor-pane">
+        {updateInfo && (
+          <div className="update-banner">
+            <span>
+              Hay una versión nueva disponible (v{updateInfo.latestVersion}) —{' '}
+              <button className="update-banner-link" onClick={() => window.typona.openLink(updateInfo.url)}>
+                Ver Release
+              </button>
+            </span>
+            <button onClick={() => setUpdateInfo(null)}>✕</button>
+          </div>
+        )}
         {errorMessage && (
           <div className="error-banner">
             <span>{errorMessage}</span>
@@ -442,6 +566,8 @@ export default function App() {
             </div>
             <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} />
           </>
+        ) : tree === null && looseFiles.length === 0 ? (
+          <RecentList recents={recents} onOpen={openRecent} />
         ) : (
           <div className="editor-placeholder">Abrí una carpeta y seleccioná un archivo .md para empezar</div>
         )}

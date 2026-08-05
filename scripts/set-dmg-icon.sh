@@ -4,8 +4,20 @@
 set -e
 
 ICON="build/icon.icns"
-DMGS=(dist/*.dmg)
-DMG="${DMGS[0]}"
+
+# Toma el .dmg modificado más recientemente, no el primero por orden alfabético
+# (si queda algún .dmg viejo de una build anterior en dist/, "Typona-0.1.1..."
+# ordena antes que "Typona-0.1.4..." alfabéticamente pero no es el que se acaba de generar).
+DMG=""
+newest_time=0
+for f in dist/*.dmg; do
+  [ -f "$f" ] || continue
+  mtime=$(stat -f %m "$f")
+  if [ "$mtime" -gt "$newest_time" ]; then
+    newest_time=$mtime
+    DMG="$f"
+  fi
+done
 
 if [ ! -f "$DMG" ]; then
   echo "No se encontró ningún .dmg en dist/, se omite el seteo de ícono."

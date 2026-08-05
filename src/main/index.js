@@ -1,7 +1,9 @@
-import { app, BrowserWindow, Menu, ipcMain, nativeImage, protocol, net } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, nativeImage, protocol, net, screen } from 'electron'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { registerFsHandlers } from './fs.js'
+import { registerRecentHandlers } from './recent.js'
+import { registerUpdateHandlers } from './update.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appIcon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'))
@@ -13,10 +15,33 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'typona-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ])
 
+const CASCADE_OFFSET = 32
+
+function getCascadedPosition(width, height) {
+  const parent = BrowserWindow.getFocusedWindow()
+  if (!parent) return {}
+
+  const [parentX, parentY] = parent.getPosition()
+  const { x: areaX, y: areaY, width: areaWidth, height: areaHeight } = screen.getDisplayMatching(
+    parent.getBounds()
+  ).workArea
+
+  let x = parentX + CASCADE_OFFSET
+  let y = parentY + CASCADE_OFFSET
+  if (x + width > areaX + areaWidth || y + height > areaY + areaHeight) {
+    x = areaX + CASCADE_OFFSET
+    y = areaY + CASCADE_OFFSET
+  }
+  return { x, y }
+}
+
 function createWindow(folderToLoad) {
+  const width = 1200
+  const height = 800
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width,
+    height,
+    ...getCascadedPosition(width, height),
     title: 'Typona',
     backgroundColor: '#282c34',
     icon: appIcon,
@@ -124,6 +149,8 @@ app.whenReady().then(() => {
   })
 
   registerFsHandlers()
+  registerRecentHandlers()
+  registerUpdateHandlers()
   buildMenu()
   createWindow()
 
