@@ -28,6 +28,14 @@ function parseHeadings(markdown) {
   return headings
 }
 
+const MAX_RECENT_TITLES = 30
+
+function extractTitles(markdown) {
+  return parseHeadings(markdown)
+    .map((heading) => heading.text)
+    .slice(0, MAX_RECENT_TITLES)
+}
+
 function computeWordStats(markdown) {
   const trimmed = markdown.trim()
   const words = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length
@@ -208,7 +216,13 @@ export default function App() {
         await openFile(paths[0])
         let updatedRecents
         for (const path of paths) {
-          updatedRecents = await window.typona.addRecent({ path, type: 'file' })
+          let titles = []
+          try {
+            titles = extractTitles(await window.typona.readFile(path))
+          } catch {
+            // no se pudo leer el archivo para sacar sus títulos; no bloquea el registro en recientes
+          }
+          updatedRecents = await window.typona.addRecent({ path, type: 'file', titles })
         }
         if (updatedRecents) setRecents(updatedRecents)
       } catch (err) {

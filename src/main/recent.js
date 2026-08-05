@@ -43,10 +43,10 @@ export function registerRecentHandlers() {
     return entries
   })
 
-  ipcMain.handle('recent:add', async (_event, { path: targetPath, type }) => {
+  ipcMain.handle('recent:add', async (_event, { path: targetPath, type, titles }) => {
     const entries = await withoutMissing(await readRecents())
     const filtered = entries.filter((entry) => entry.path !== targetPath)
-    filtered.unshift({ path: targetPath, type, openedAt: Date.now() })
+    filtered.unshift({ path: targetPath, type, titles: titles ?? [], openedAt: Date.now() })
     const trimmed = filtered.slice(0, MAX_RECENTS)
     await writeRecents(trimmed)
     return trimmed
