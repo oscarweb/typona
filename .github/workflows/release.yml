@@ -14,7 +14,6 @@ permissions:
 
 jobs:
   release:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: macos-latest
 
     steps:
@@ -31,30 +30,30 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Configurar git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Subir versión (patch)
+      - name: Calcular próxima versión
         id: bump
         run: |
-          npm version patch --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          LAST_TAG=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n 1)
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"
+          fi
+          VERSION=${LAST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
 
-      - name: Commitear y taguear
-        run: |
-          git add package.json package-lock.json
-          git commit -m "chore(release): v${{ steps.bump.outputs.version }} [skip ci]"
-          git tag "v${{ steps.bump.outputs.version }}"
-          git push origin HEAD:main
-          git push origin "v${{ steps.bump.outputs.version }}"
+      - name: Setear versión localmente (sin commitear a main)
+        run: npm version ${{ steps.bump.outputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Generar instalador (.dmg)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run dist
+
+      - name: Crear y pushear tag
+        run: |
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin "v${{ steps.bump.outputs.version }}"
 
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
