@@ -5,7 +5,7 @@ import StatusBar from './components/StatusBar.jsx'
 import PromptDialog from './components/PromptDialog.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
 import RecentList from './components/RecentList.jsx'
-import { joinRelative } from './pathUtils.js'
+import { dirname, joinRelative, tailPath } from './pathUtils.js'
 
 function parseHeadings(markdown) {
   const headings = []
@@ -59,6 +59,8 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState(null)
   const [externalChange, setExternalChange] = useState(null)
   const [statusNotice, setStatusNotice] = useState(null)
+  // archivo recién creado: el editor pone el cursor al final apenas lo monta
+  const [autoFocusPath, setAutoFocusPath] = useState(null)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
@@ -473,24 +475,79 @@ export default function App() {
     [closeActiveIfUnder]
   )
 
-  const handleCreateFile = useCallback(
-    (dirPath) => {
+  // Abre un archivo recién creado: como archivo suelto (se suma a "Archivos abiertos" y a
+  // Recientes) o como parte del árbol de la carpeta abierta.
+  const openCreatedFile = useCallback(
+    async (filePath, { asLooseFile }) => {
+      setAutoFocusPath(filePath)
+      await refreshTree()
+      if (asLooseFile) await addLooseFiles([filePath])
+      else await openFile(filePath)
+    },
+    [refreshTree, addLooseFiles, openFile]
+  )
+
+  // Pide solo el nombre: la carpeta destino ya está definida.
+  const promptNewFile = useCallback(
+    async (dirPath, { asLooseFile }) => {
+      let suggestedName = 'sin-titulo.md'
+      try {
+        suggestedName = await window.typona.suggestFileName(dirPath)
+      } catch {
+        // si no se puede leer la carpeta, se sugiere el nombre por defecto
+      }
       setDialog({
         type: 'prompt',
-        title: 'Nombre del archivo',
-        defaultValue: 'nuevo-archivo.md',
+        title: 'Nuevo archivo',
+        detail: `En ${tailPath(dirPath)}`,
+        defaultValue: suggestedName,
         onConfirm: async (name) => {
           try {
-            await window.typona.createFile(dirPath, name)
-            await refreshTree()
+            const filePath = await window.typona.createFile(dirPath, name)
+            await openCreatedFile(filePath, { asLooseFile })
           } catch (err) {
             setErrorMessage(err.message)
           }
         }
       })
     },
-    [refreshTree]
+    [openCreatedFile]
   )
+
+  // Click derecho en una carpeta (o archivo) del árbol.
+  const handleCreateFile = useCallback((dirPath) => promptNewFile(dirPath, { asLooseFile: false }), [promptNewFile])
+
+  // Click derecho en un archivo de "Archivos abiertos": crea un hermano en su misma carpeta.
+  const handleCreateSibling = useCallback(
+    (filePath) => promptNewFile(dirname(filePath), { asLooseFile: true }),
+    [promptNewFile]
+  )
+
+  // Menú "Nuevo archivo…" / Cmd+N / botón de la sidebar.
+  const newFile = useCallback(async () => {
+    const activePath = activePathRef.current
+    const activeDir = activePath ? dirname(activePath) : null
+
+    if (tree !== null && folderPath) {
+      // con carpeta abierta: dentro de la carpeta del archivo activo, o en la raíz
+      const insideFolder = activeDir && (activeDir === folderPath || activeDir.startsWith(`${folderPath}/`))
+      await promptNewFile(insideFolder ? activeDir : folderPath, { asLooseFile: false })
+      return
+    }
+
+    try {
+      const filePath = await window.typona.saveFileDialog(activeDir)
+      if (!filePath) return
+      // si se eligió reemplazar un archivo que estaba abierto, se cierra antes (ya se confirmó)
+      closeActiveIfUnder(filePath, false)
+      const createdPath = await window.typona.createFile(dirname(filePath), filePath.split('/').pop(), {
+        replace: true
+      })
+      await openCreatedFile(createdPath, { asLooseFile: true })
+    } catch (err) {
+      setErrorMessage(`No se pudo crear el archivo: ${err.message}`)
+    }
+  }, [tree, folderPath, promptNewFile, closeActiveIfUnder, openCreatedFile])
 
   const handleCreateFolder = useCallback(
     (dirPath) => {
@@ -638,15 +695,17 @@ export default function App() {
   )
 
   useEffect(() => {
+    const offNewFile = window.typona.onMenuNewFile(newFile)
     const offOpen = window.typona.onMenuOpenFolder(openFolder)
     const offOpenFile = window.typona.onMenuOpenFile(openFilesDialog)
     const offSave = window.typona.onMenuSave(handleSave)
     return () => {
+      offNewFile()
       offOpen()
       offOpenFile()
       offSave()
     }
-  }, [openFolder, openFilesDialog, handleSave])
+  }, [newFile, openFolder, openFilesDialog, handleSave])
 
   useEffect(() => {
     return window.typona.onLoadFolder(loadFolder)
@@ -754,6 +813,8 @@ export default function App() {
         onOpenFile={openFile}
         onOpenFolder={openFolder}
         onOpenFileDialog={openFilesDialog}
+        onNewFile={newFile}
+        onCreateSibling={handleCreateSibling}
         onCreateFile={handleCreateFile}
         onCreateFolder={handleCreateFolder}
         onRename={handleRename}
@@ -805,6 +866,8 @@ export default function App() {
                 fileKey={activePath}
                 baseDir={activePath.slice(0, activePath.lastIndexOf('/'))}
                 initialContent={activeContent}
+                autoFocus={autoFocusPath === activePath}
+                onAutoFocused={() => setAutoFocusPath(null)}
                 onMarkdownChange={handleMarkdownChange}
                 onLinkClick={handleLinkClick}
               />
@@ -821,6 +884,7 @@ export default function App() {
       {dialog?.type === 'prompt' && (
         <PromptDialog
           title={dialog.title}
+          detail={dialog.detail}
           defaultValue={dialog.defaultValue}
           onConfirm={(value) => {
             setDialog(null)
