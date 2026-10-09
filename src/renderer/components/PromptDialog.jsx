@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
+import useEscapeKey from './useEscapeKey.js'
 
 export default function PromptDialog({ title, defaultValue = '', onConfirm, onCancel }) {
   const [value, setValue] = useState(defaultValue)
+  useEscapeKey(onCancel)
 
   const submit = (event) => {
     event.preventDefault()

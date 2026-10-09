@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
+import useEscapeKey from './useEscapeKey.js'
 
 export default function LinkDialog({ withText, onConfirm, onCancel }) {
   const [text, setText] = useState('')
   const [href, setHref] = useState('')
+  useEscapeKey(onCancel)
 
   const submit = (event) => {
     event.preventDefault()
