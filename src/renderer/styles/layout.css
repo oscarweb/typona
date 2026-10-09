@@ -373,6 +373,16 @@
   color: #e5a23c;
 }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-notice {
+  color: var(--link-color);
+}
+
 .error-banner {
   flex-shrink: 0;
   display: flex;
@@ -416,6 +426,40 @@
 }
 
 .update-banner-link {
+  padding: 0;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.external-banner {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: #e5a23c;
+  background: rgba(229, 162, 60, 0.12);
+  border-bottom: 1px solid rgba(229, 162, 60, 0.3);
+}
+
+.external-banner button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.external-banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.external-banner-actions button {
   padding: 0;
   font-weight: 600;
   text-decoration: underline;
