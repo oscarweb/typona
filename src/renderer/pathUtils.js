@@ -22,3 +22,15 @@ export function toAssetUrl(absolutePath) {
   // segmento del path absoluto (p. ej. "Applications") con el host.
   return `typona-asset://local/${encoded}`
 }
+
+// Carpeta que contiene a un path absoluto (POSIX).
+export function dirname(absolutePath) {
+  return absolutePath.slice(0, absolutePath.lastIndexOf('/')) || '/'
+}
+
+// Últimos segmentos de una ruta para mostrarla corta: "/a/b/c/d" -> "…/b/c/d".
+export function tailPath(absolutePath, segments = 3) {
+  const parts = absolutePath.split('/').filter(Boolean)
+  if (parts.length <= segments) return absolutePath
+  return `…/${parts.slice(-segments).join('/')}`
+}
