@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('typona', {
   createFile: (dirPath, name) => ipcRenderer.invoke('fs:createFile', dirPath, name),
   createFolder: (dirPath, name) => ipcRenderer.invoke('fs:createFolder', dirPath, name),
   rename: (oldPath, newName) => ipcRenderer.invoke('fs:rename', oldPath, newName),
+  trashEntry: (targetPath) => ipcRenderer.invoke('fs:trash', targetPath),
+  countEntries: (dirPath) => ipcRenderer.invoke('fs:countEntries', dirPath),
   deleteEntry: (targetPath, isDirectory) => ipcRenderer.invoke('fs:delete', targetPath, isDirectory),
   openLink: (href, basePath) => ipcRenderer.invoke('shell:openLink', href, basePath),
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
