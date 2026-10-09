@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { registerFsHandlers } from './fs.js'
 import { registerRecentHandlers } from './recent.js'
 import { registerUpdateHandlers } from './update.js'
+import { registerWatchHandlers } from './watch.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appIcon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'))
@@ -51,6 +52,14 @@ function createWindow(folderToLoad) {
       nodeIntegration: false,
       sandbox: false
     }
+  })
+
+  // Red de seguridad: los links del documento los maneja el renderer. La ventana nunca navega
+  // fuera de la app ni abre ventanas nuevas (p. ej. un <a href="x.md"> seguido por el navegador).
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event, url) => {
+    // recargar (misma URL, incluido el hot reload de Vite en dev) sí se permite
+    if (url !== win.webContents.getURL()) event.preventDefault()
   })
 
   let allowClose = false
@@ -101,6 +110,12 @@ function buildMenu() {
       label: 'Archivo',
       submenu: [
         {
+          label: 'Nuevo archivo…',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => send('menu:newFile')
+        },
+        { type: 'separator' },
+        {
           label: 'Abrir Carpeta…',
           accelerator: 'CmdOrCtrl+O',
           click: () => send('menu:openFolder')
@@ -130,6 +145,12 @@ function buildMenu() {
     {
       label: 'Ver',
       submenu: [
+        {
+          label: 'Alternar modo edición',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => send('menu:toggleEditMode')
+        },
+        { type: 'separator' },
         { role: 'reload' },
         ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' }])
       ]
@@ -151,6 +172,7 @@ app.whenReady().then(() => {
   registerFsHandlers()
   registerRecentHandlers()
   registerUpdateHandlers()
+  registerWatchHandlers()
   buildMenu()
   createWindow()
 

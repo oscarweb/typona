@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import ContextMenu from './ContextMenu.jsx'
 import { FileIcon } from './Icons.jsx'
 
-export default function OpenFiles({ files, activePath, isDirty, onOpenFile, onRename, onDelete, onRemove }) {
+export default function OpenFiles({ files, activePath, isDirty, onOpenFile, onCreateSibling, onRename, onDelete, onRemove }) {
   const [menu, setMenu] = useState(null)
 
   if (!files || files.length === 0) return null
@@ -14,10 +14,12 @@ export default function OpenFiles({ files, activePath, isDirty, onOpenFile, onRe
       x: event.clientX,
       y: event.clientY,
       items: [
+        { label: 'Nuevo archivo en esta carpeta…', onClick: () => onCreateSibling(filePath) },
+        { separator: true },
         { label: 'Quitar de la lista', onClick: () => onRemove(filePath) },
         { separator: true },
         { label: 'Renombrar…', onClick: () => onRename(node) },
-        { label: 'Eliminar archivo', danger: true, onClick: () => onDelete(node) }
+        { label: 'Mover a la Papelera', onClick: () => onDelete(node) }
       ]
     })
   }

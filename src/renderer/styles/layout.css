@@ -72,8 +72,13 @@
 
 .open-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 12px;
+}
+
+.open-folder-btn.new-file-btn {
+  flex-basis: 100%;
 }
 
 .open-folder-btn {
@@ -237,6 +242,7 @@
 }
 
 .editor-scroll > .editor-content {
+  position: relative;
   max-width: 740px;
   margin: 0 auto;
   padding: 48px 40px 120px;
@@ -373,6 +379,73 @@
   color: #e5a23c;
 }
 
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  margin-right: 16px;
+}
+
+.status-modified,
+.status-separator {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.status-modified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.status-notice {
+  color: var(--link-color);
+}
+
+.status-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.status-mode:hover {
+  color: var(--sidebar-text);
+}
+
+.status-mode.editing {
+  color: var(--link-color);
+}
+
+/* La interfaz no se selecciona: Cmd+A / "Seleccionar todo" abarcan solo el documento */
+.sidebar,
+.status-bar,
+.sidebar-tabs {
+  user-select: none;
+}
+
 .error-banner {
   flex-shrink: 0;
   display: flex;
@@ -421,6 +494,40 @@
   text-decoration: underline;
 }
 
+.external-banner {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: #e5a23c;
+  background: rgba(229, 162, 60, 0.12);
+  border-bottom: 1px solid rgba(229, 162, 60, 0.3);
+}
+
+.external-banner button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.external-banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.external-banner-actions button {
+  padding: 0;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -460,6 +567,20 @@
   color: var(--sidebar-text);
 }
 
+.modal-message:has(+ .modal-detail) {
+  margin-bottom: 10px;
+}
+
+.modal-detail {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--sidebar-heading);
+}
+
+.modal-detail:last-of-type {
+  margin-bottom: 16px;
+}
+
 .modal-box input {
   display: block;
   width: 100%;
@@ -471,6 +592,14 @@
   background: var(--bg-color);
   border: 1px solid var(--sidebar-border);
   border-radius: 4px;
+}
+
+/* sin anillo de foco (Chromium usa el color de acento del sistema); queda el borde base.
+   Aplica a los inputs y a los botones de todos los modales (el botón por defecto ya se
+   distingue por su color). */
+.modal-box input:focus,
+.modal-actions button:focus {
+  outline: none;
 }
 
 .modal-actions {
@@ -492,13 +621,71 @@
 }
 
 .modal-actions button[type='submit'],
-.modal-actions button:last-child {
+.modal-actions button.primary {
   color: #fff;
   background: var(--link-color);
   border-color: var(--link-color);
 }
 
 .modal-actions button.danger {
+  color: #fff;
   background: #e06c75;
   border-color: #e06c75;
+}
+
+/* Botón flotante "Copiar" sobre la selección (modo lectura) */
+.selection-copy {
+  position: fixed;
+  z-index: 50;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--sans);
+  color: var(--sidebar-text);
+  background: var(--sidebar-active-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  user-select: none;
+}
+
+.selection-copy.below {
+  transform: translate(-50%, 0);
+}
+
+.selection-copy:hover,
+.selection-copy.copied {
+  color: var(--link-color);
+}
+
+/* Botón de copiar de los bloques de código (aparece al pasar el mouse) */
+.code-copy {
+  position: absolute;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: var(--sans);
+  color: var(--text-muted);
+  background: var(--sidebar-active-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.code-copy:hover,
+.code-copy.copied {
+  color: var(--link-color);
+}
+
+.selection-copy:focus,
+.code-copy:focus {
+  outline: none;
 }

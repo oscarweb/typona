@@ -1,8 +1,36 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { app, ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
 const MD_EXT = new Set(['.md', '.markdown'])
+const DEFAULT_FILE_BASE = 'sin-titulo'
+
+function withMarkdownExtension(name) {
+  return MD_EXT.has(path.extname(name).toLowerCase()) ? name : `${name}.md`
+}
+
+// "plan-de-pruebas.md" -> "Plan de pruebas"; "README.md" -> "README"
+function titleFromFileName(fileName) {
+  const base = path.basename(fileName, path.extname(fileName)).replace(/[-_]+/g, ' ').trim()
+  return base.charAt(0).toUpperCase() + base.slice(1)
+}
+
+async function pathExists(targetPath) {
+  try {
+    await fs.access(targetPath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Primer nombre libre en la carpeta: sin-titulo.md, sin-titulo-2.md, sin-titulo-3.md…
+async function uniqueFileName(dirPath) {
+  for (let n = 1; ; n++) {
+    const name = n === 1 ? `${DEFAULT_FILE_BASE}.md` : `${DEFAULT_FILE_BASE}-${n}.md`
+    if (!(await pathExists(path.join(dirPath, name)))) return name
+  }
+}
 
 async function buildTree(dirPath) {
   const entries = await fs.readdir(dirPath, { withFileTypes: true })
@@ -73,10 +101,32 @@ export function registerFsHandlers() {
   )
 
   ipcMain.handle(
+    'dialog:saveFile',
+    wrap(async (event, defaultDir) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const dirPath = defaultDir ?? app.getPath('documents')
+      const result = await dialog.showSaveDialog(win, {
+        title: 'Nuevo archivo',
+        buttonLabel: 'Crear',
+        defaultPath: path.join(dirPath, await uniqueFileName(dirPath)),
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+        properties: ['createDirectory']
+      })
+      if (result.canceled || !result.filePath) return null
+      return withMarkdownExtension(result.filePath)
+    }, 'No se pudo abrir el diálogo para crear el archivo')
+  )
+
+  ipcMain.handle(
+    'fs:suggestFileName',
+    wrap((_event, dirPath) => uniqueFileName(dirPath), 'No se pudo leer la carpeta')
+  )
+
+  ipcMain.handle(
     'fs:statPath',
     wrap(async (_event, targetPath) => {
       const stats = await fs.stat(targetPath)
-      return { isDirectory: stats.isDirectory() }
+      return { isDirectory: stats.isDirectory(), mtimeMs: stats.mtimeMs }
     }, 'No se pudo leer la ruta')
   )
 
@@ -100,10 +150,19 @@ export function registerFsHandlers() {
 
   ipcMain.handle(
     'fs:createFile',
-    wrap(async (_event, dirPath, name) => {
-      const fileName = MD_EXT.has(path.extname(name).toLowerCase()) ? name : `${name}.md`
+    wrap(async (_event, dirPath, name, options = {}) => {
+      const fileName = withMarkdownExtension(name)
       const filePath = path.join(dirPath, fileName)
-      await fs.writeFile(filePath, '', { flag: 'wx' })
+      // replace: el usuario ya confirmó "Reemplazar" en el diálogo nativo de Guardar;
+      // el archivo anterior va a la Papelera (recuperable) en lugar de pisarse.
+      if (options.replace && (await pathExists(filePath))) await shell.trashItem(filePath)
+      const title = titleFromFileName(fileName)
+      try {
+        await fs.writeFile(filePath, title ? `# ${title}\n` : '', { flag: 'wx' })
+      } catch (err) {
+        if (err.code === 'EEXIST') throw new Error(`ya existe "${fileName}" en esa carpeta`)
+        throw err
+      }
       return filePath
     }, 'No se pudo crear el archivo')
   )
@@ -124,6 +183,29 @@ export function registerFsHandlers() {
       await fs.rename(oldPath, newPath)
       return newPath
     }, 'No se pudo renombrar')
+  )
+
+  ipcMain.handle(
+    'fs:trash',
+    wrap((_event, targetPath) => shell.trashItem(targetPath), 'No se pudo mover a la Papelera')
+  )
+
+  ipcMain.handle(
+    'fs:countEntries',
+    wrap(async (_event, dirPath) => {
+      const entries = await fs.readdir(dirPath, { recursive: true, withFileTypes: true })
+      let files = 0
+      let notInTree = 0
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue
+        files++
+        // mismo criterio que buildTree: el árbol oculta lo que empieza con "." y lo que no es markdown
+        const relativePath = path.relative(dirPath, path.join(entry.parentPath, entry.name))
+        const isHidden = relativePath.split(path.sep).some((part) => part.startsWith('.'))
+        if (isHidden || !MD_EXT.has(path.extname(entry.name).toLowerCase())) notInTree++
+      }
+      return { files, notInTree }
+    }, 'No se pudo leer la carpeta')
   )
 
   ipcMain.handle(

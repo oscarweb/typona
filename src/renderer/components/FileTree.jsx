@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ContextMenu from './ContextMenu.jsx'
 import { FileIcon, FolderIcon, ChevronIcon } from './Icons.jsx'
+import { dirname } from '../pathUtils.js'
 
 function TreeNode({ node, activePath, isDirty, onOpenFile, onContextMenu, collapsed, onToggleCollapse, depth = 0 }) {
   if (node.type === 'file') {
@@ -59,6 +60,24 @@ function TreeNode({ node, activePath, isDirty, onOpenFile, onContextMenu, collap
 export default function FileTree({ tree, activePath, isDirty, onOpenFile, onCreateFile, onCreateFolder, onRename, onDelete }) {
   const [menu, setMenu] = useState(null)
   const [collapsed, setCollapsed] = useState(() => new Set())
+  const rootRef = useRef(null)
+
+  // Al cambiar el archivo activo (por ejemplo, uno recién creado) se expanden las
+  // carpetas que lo contienen y la fila queda visible.
+  useEffect(() => {
+    if (!activePath) return
+    setCollapsed((prev) => {
+      const ancestors = [...prev].filter((dir) => activePath.startsWith(`${dir}/`))
+      if (ancestors.length === 0) return prev
+      const next = new Set(prev)
+      ancestors.forEach((dir) => next.delete(dir))
+      return next
+    })
+  }, [activePath])
+
+  useEffect(() => {
+    rootRef.current?.querySelector('.tree-row.active')?.scrollIntoView({ block: 'nearest' })
+  }, [activePath, tree])
 
   if (!tree) {
     return <div className="sidebar-empty">Abrí una carpeta para ver tus archivos .md</div>
@@ -84,10 +103,13 @@ export default function FileTree({ tree, activePath, isDirty, onOpenFile, onCrea
       items.push({ label: 'Nuevo archivo…', onClick: () => onCreateFile(node.path) })
       items.push({ label: 'Nueva carpeta…', onClick: () => onCreateFolder(node.path) })
       items.push({ separator: true })
+    } else {
+      items.push({ label: 'Nuevo archivo en esta carpeta…', onClick: () => onCreateFile(dirname(node.path)) })
+      items.push({ separator: true })
     }
     if (node !== tree) {
       items.push({ label: 'Renombrar…', onClick: () => onRename(node) })
-      items.push({ label: 'Eliminar', danger: true, onClick: () => onDelete(node) })
+      items.push({ label: 'Mover a la Papelera', onClick: () => onDelete(node) })
     }
     if (items.length === 0) return
     setMenu({ x: event.clientX, y: event.clientY, items })
@@ -99,7 +121,7 @@ export default function FileTree({ tree, activePath, isDirty, onOpenFile, onCrea
   }
 
   return (
-    <div className="tree-root" onContextMenu={openRootMenu}>
+    <div className="tree-root" ref={rootRef} onContextMenu={openRootMenu}>
       {tree.children.length === 0 ? (
         <div className="sidebar-empty">No se encontraron archivos .md en esta carpeta</div>
       ) : (
