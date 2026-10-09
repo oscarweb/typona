@@ -551,26 +551,84 @@ export default function App() {
     [refreshTree]
   )
 
-  const handleDelete = useCallback(
+  const handleRemoved = useCallback(
+    async (node) => {
+      const isDirectory = node.type === 'dir'
+      const isUnder = (p) => p === node.path || (isDirectory && p.startsWith(`${node.path}/`))
+      setLooseFiles((prev) => prev.filter((p) => !isUnder(p)))
+      closeActiveIfUnder(node.path, isDirectory)
+      await refreshTree()
+    },
+    [refreshTree, closeActiveIfUnder]
+  )
+
+  const confirmPermanentDelete = useCallback(
     (node) => {
-      const label = node.type === 'dir' ? 'carpeta' : 'archivo'
       setDialog({
         type: 'confirm',
-        message: `¿Eliminar la ${label} "${node.name}"? Esta acción no se puede deshacer.`,
+        message: `No se pudo mover "${node.name}" a la Papelera. ¿Eliminarlo permanentemente?`,
+        details: ['Esta acción no se puede deshacer.'],
         danger: true,
+        confirmLabel: 'Eliminar permanentemente',
+        cancelIsDefault: true,
         onConfirm: async () => {
           try {
             await window.typona.deleteEntry(node.path, node.type === 'dir')
-            setLooseFiles((prev) => prev.filter((p) => p !== node.path))
-            closeActiveIfUnder(node.path, node.type === 'dir')
-            await refreshTree()
+            await handleRemoved(node)
           } catch (err) {
             setErrorMessage(err.message)
           }
         }
       })
     },
-    [refreshTree, closeActiveIfUnder]
+    [handleRemoved]
+  )
+
+  const handleDelete = useCallback(
+    async (node) => {
+      const isDirectory = node.type === 'dir'
+      const isUnder = (p) => p === node.path || (isDirectory && p.startsWith(`${node.path}/`))
+      const details = []
+
+      if (isDirectory) {
+        try {
+          const { files, notInTree } = await window.typona.countEntries(node.path)
+          if (files === 0) {
+            details.push('La carpeta está vacía.')
+          } else {
+            const hiddenNote = notInTree > 0 ? ` (${notInTree} no se ven en el árbol: ocultos o que no son markdown)` : ''
+            details.push(`Contiene ${files} archivo${files === 1 ? '' : 's'}${hiddenNote}.`)
+          }
+        } catch {
+          // si no se puede contar, se confirma igual sin ese detalle
+        }
+      }
+
+      const activePath = activePathRef.current
+      const hasUnsavedChanges =
+        (isDirtyRef.current && activePath && isUnder(activePath)) || [...draftsRef.current.keys()].some(isUnder)
+      if (hasUnsavedChanges) details.push('Hay cambios sin guardar que se van a perder.')
+
+      details.push('Vas a poder recuperarlo desde la Papelera.')
+
+      setDialog({
+        type: 'confirm',
+        message: `¿Mover ${isDirectory ? 'la carpeta' : 'el archivo'} "${node.name}" a la Papelera?`,
+        details,
+        confirmLabel: 'Mover a la Papelera',
+        cancelIsDefault: true,
+        onConfirm: async () => {
+          try {
+            await window.typona.trashEntry(node.path)
+          } catch {
+            confirmPermanentDelete(node)
+            return
+          }
+          await handleRemoved(node)
+        }
+      })
+    },
+    [handleRemoved, confirmPermanentDelete]
   )
 
   useEffect(() => {
@@ -764,8 +822,10 @@ export default function App() {
       {dialog?.type === 'confirm' && (
         <ConfirmDialog
           message={dialog.message}
+          details={dialog.details}
           danger={dialog.danger}
           confirmLabel={dialog.confirmLabel}
+          cancelIsDefault={dialog.cancelIsDefault}
           onConfirm={() => {
             setDialog(null)
             dialog.onConfirm()
