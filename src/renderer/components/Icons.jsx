@@ -53,3 +53,20 @@ export function ClockIcon(props) {
     </svg>
   )
 }
+
+export function EyeIcon(props) {
+  return (
+    <svg {...base} width={12} height={12} {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function PencilIcon(props) {
+  return (
+    <svg {...base} width={12} height={12} {...props}>
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+    </svg>
+  )
+}
