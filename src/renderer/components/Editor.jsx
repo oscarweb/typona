@@ -21,10 +21,13 @@ import { Milkdown, useEditor, useInstance, MilkdownProvider } from '@milkdown/re
 import { TextSelection } from '@milkdown/prose/state'
 import { replaceAll } from '@milkdown/utils'
 import ContextMenu from './ContextMenu.jsx'
+import { CopyIcon, CheckIcon } from './Icons.jsx'
+import { copyPlainText } from '../clipboard.js'
 import LinkDialog from './LinkDialog.jsx'
 import { joinRelative, toAssetUrl } from '../pathUtils.js'
 
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+const TRIPLE_CLICK_WAIT_MS = 300
 
 function resolveImageSrc(baseDir, rawSrc) {
   if (!rawSrc || HAS_SCHEME.test(rawSrc)) return rawSrc
@@ -130,8 +133,15 @@ const EditorInner = forwardRef(function EditorInner(
   const pendingEditPosRef = useRef(null)
   // Dónde se apretó el mouse: si se soltó lejos, fue un arrastre (selección), no un click.
   const mouseDownPointRef = useRef(null)
+  // El doble click espera un instante antes de pasar a edición: si llega un tercer click es un
+  // triple click (seleccionar el párrafo) y se cancela.
+  const pendingEditTimerRef = useRef(null)
   const [menu, setMenu] = useState(null)
   const [linkDialog, setLinkDialog] = useState(null)
+  // Botón flotante "Copiar" sobre una selección hecha con el mouse (solo modo lectura).
+  const [selectionCopy, setSelectionCopy] = useState(null)
+  // Botón de copiar del bloque de código que está bajo el mouse (los dos modos).
+  const [codeCopy, setCodeCopy] = useState(null)
   const [, getInstance] = useInstance()
 
   useImperativeHandle(
@@ -223,6 +233,38 @@ const EditorInner = forwardRef(function EditorInner(
   }, [editable, getInstance])
 
   useEffect(() => {
+    if (editable) setSelectionCopy(null)
+  }, [editable])
+
+  // Al cambiar de archivo no quedan botones flotando sobre el documento nuevo.
+  useEffect(() => {
+    setSelectionCopy(null)
+    setCodeCopy(null)
+  }, [fileKey])
+
+  // El botón "Copiar" se va si se scrollea, si la selección desaparece o con Escape (en lectura el
+  // documento no tiene el foco, así que Escape se escucha en window).
+  const hasSelectionCopy = selectionCopy !== null
+  useEffect(() => {
+    if (!hasSelectionCopy) return
+    const hide = () => setSelectionCopy(null)
+    const onSelectionChange = () => {
+      if (window.getSelection()?.isCollapsed) hide()
+    }
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') hide()
+    }
+    window.addEventListener('scroll', hide, true)
+    window.addEventListener('keydown', onKeyDown)
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => {
+      window.removeEventListener('scroll', hide, true)
+      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('selectionchange', onSelectionChange)
+    }
+  }, [hasSelectionCopy])
+
+  useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
@@ -259,7 +301,65 @@ const EditorInner = forwardRef(function EditorInner(
   }
 
   const handleMouseDown = (event) => {
+    if (event.detail >= 3) clearTimeout(pendingEditTimerRef.current)
     mouseDownPointRef.current = { x: event.clientX, y: event.clientY }
+    setSelectionCopy(null)
+  }
+
+  // Al soltar el mouse en lectura, si quedó texto seleccionado, aparece "Copiar" arriba de la
+  // selección (o abajo si no hay lugar). Con ⌘A no aparece: no es una selección con el mouse.
+  const handleMouseUp = (event) => {
+    // solo selecciones con el botón izquierdo, y no al soltar sobre el propio botón "Copiar"
+    if (editable || event.button !== 0 || event.target.closest('.selection-copy')) return
+    // solo si esta interacción seleccionó texto: arrastrar o triple click. Un click simple (por
+    // ejemplo en un link) con una selección vieja todavía marcada no muestra el botón.
+    const start = mouseDownPointRef.current
+    const dragged = start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4
+    if (!dragged && event.detail < 3) return
+    setTimeout(() => {
+      const domSelection = window.getSelection()
+      const docDom = containerRef.current?.querySelector('.ProseMirror')
+      if (!domSelection || domSelection.isCollapsed || !docDom?.contains(domSelection.anchorNode)) return
+      const rect = domSelection.getRangeAt(0).getBoundingClientRect()
+      if (rect.width === 0 && rect.height === 0) return
+      const below = rect.top < 48
+      setSelectionCopy({ x: rect.left + rect.width / 2, y: below ? rect.bottom + 8 : rect.top - 8, below, copied: false })
+    }, 0)
+  }
+
+  const copySelection = () => {
+    // ProseMirror arma el contenido (HTML del documento sin estilos del tema + texto plano)
+    document.execCommand('copy')
+    setSelectionCopy((current) => current && { ...current, copied: true })
+    setTimeout(() => setSelectionCopy(null), 1000)
+  }
+
+  // Botón de copiar sobre el bloque de código bajo el mouse; posición relativa al contenedor.
+  const trackCodeBlock = (event) => {
+    if (event.target.closest?.('.code-copy')) return
+    const pre = event.target.closest?.('pre')
+    const container = containerRef.current
+    if (!pre || !container?.contains(pre)) {
+      if (codeCopy) setCodeCopy(null)
+      return
+    }
+    if (codeCopy?.pre === pre) return
+    const preRect = pre.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    setCodeCopy({
+      pre,
+      top: preRect.top - containerRect.top + 6,
+      right: containerRect.right - preRect.right + 6,
+      copied: false
+    })
+  }
+
+  const copyCodeBlock = () => {
+    if (!codeCopy) return
+    const { pre } = codeCopy
+    copyPlainText(pre.querySelector('code')?.textContent ?? pre.textContent)
+    setCodeCopy((current) => current && { ...current, copied: true })
+    setTimeout(() => setCodeCopy((current) => current && current.pre === pre && { ...current, copied: false }), 1500)
   }
 
   // Click con la rueda del mouse: por defecto abriría el link en una ventana nueva.
@@ -270,6 +370,7 @@ const EditorInner = forwardRef(function EditorInner(
   // Tooltip con el atajo según el modo. Si el link ya tiene un title propio (del markdown),
   // se respeta; data-typona-hint marca los que puso la app.
   const handleMouseOver = (event) => {
+    trackCodeBlock(event)
     const anchor = event.target.closest?.('a[href]')
     if (!anchor || (anchor.title && !anchor.dataset.typonaHint)) return
     anchor.title = editable ? '⌘/Ctrl + clic para abrir' : 'Clic para abrir'
@@ -278,12 +379,15 @@ const EditorInner = forwardRef(function EditorInner(
 
   const handleDoubleClick = (event) => {
     if (editable) return
-    const editor = getInstance()
-    editor?.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      pendingEditPosRef.current = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
+    let pos = null
+    getInstance()?.action((ctx) => {
+      pos = ctx.get(editorViewCtx).posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
     })
-    onRequestEdit?.()
+    clearTimeout(pendingEditTimerRef.current)
+    pendingEditTimerRef.current = setTimeout(() => {
+      pendingEditPosRef.current = pos
+      onRequestEdit?.()
+    }, TRIPLE_CLICK_WAIT_MS)
   }
 
   const handleKeyDown = (event) => {
@@ -304,6 +408,7 @@ const EditorInner = forwardRef(function EditorInner(
 
   const handleContextMenu = (event) => {
     event.preventDefault()
+    setSelectionCopy(null)
     const editor = getInstance()
 
     if (!editable) {
@@ -358,6 +463,8 @@ const EditorInner = forwardRef(function EditorInner(
       className="editor-content"
       ref={containerRef}
       onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={() => setCodeCopy(null)}
       onClick={handleClick}
       onAuxClick={handleAuxClick}
       onDoubleClick={handleDoubleClick}
@@ -366,6 +473,39 @@ const EditorInner = forwardRef(function EditorInner(
       onContextMenu={handleContextMenu}
     >
       <Milkdown />
+      {selectionCopy && (
+        <button
+          type="button"
+          className={`selection-copy${selectionCopy.below ? ' below' : ''}${selectionCopy.copied ? ' copied' : ''}`}
+          style={{ left: selectionCopy.x, top: selectionCopy.y }}
+          onMouseDown={(event) => {
+            // no perder la selección ni disparar el mousedown del contenedor
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onClick={copySelection}
+        >
+          {selectionCopy.copied ? <CheckIcon /> : <CopyIcon />}
+          {selectionCopy.copied ? 'Copiado' : 'Copiar'}
+        </button>
+      )}
+      {codeCopy && (
+        <button
+          type="button"
+          className={`code-copy${codeCopy.copied ? ' copied' : ''}`}
+          style={{ top: codeCopy.top, right: codeCopy.right }}
+          title="Copiar código"
+          onMouseDown={(event) => {
+            // en edición, no mover el cursor dentro del bloque
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onClick={copyCodeBlock}
+        >
+          {codeCopy.copied ? <CheckIcon /> : <CopyIcon />}
+          {codeCopy.copied && 'Copiado'}
+        </button>
+      )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       {linkDialog && (
         <LinkDialog
