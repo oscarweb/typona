@@ -72,8 +72,13 @@
 
 .open-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 12px;
+}
+
+.open-folder-btn.new-file-btn {
+  flex-basis: 100%;
 }
 
 .open-folder-btn {
@@ -559,6 +564,11 @@
   background: var(--bg-color);
   border: 1px solid var(--sidebar-border);
   border-radius: 4px;
+}
+
+/* sin anillo de foco (Chromium usa el color de acento del sistema); queda el borde base */
+.modal-box input:focus {
+  outline: none;
 }
 
 .modal-actions {
