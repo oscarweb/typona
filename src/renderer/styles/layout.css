@@ -504,6 +504,20 @@
   color: var(--sidebar-text);
 }
 
+.modal-message:has(+ .modal-detail) {
+  margin-bottom: 10px;
+}
+
+.modal-detail {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--sidebar-heading);
+}
+
+.modal-detail:last-of-type {
+  margin-bottom: 16px;
+}
+
 .modal-box input {
   display: block;
   width: 100%;
@@ -536,13 +550,14 @@
 }
 
 .modal-actions button[type='submit'],
-.modal-actions button:last-child {
+.modal-actions button.primary {
   color: #fff;
   background: var(--link-color);
   border-color: var(--link-color);
 }
 
 .modal-actions button.danger {
+  color: #fff;
   background: #e06c75;
   border-color: #e06c75;
 }
