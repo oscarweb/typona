@@ -76,7 +76,7 @@ export function registerFsHandlers() {
     'fs:statPath',
     wrap(async (_event, targetPath) => {
       const stats = await fs.stat(targetPath)
-      return { isDirectory: stats.isDirectory() }
+      return { isDirectory: stats.isDirectory(), mtimeMs: stats.mtimeMs }
     }, 'No se pudo leer la ruta')
   )
 
