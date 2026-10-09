@@ -17,7 +17,7 @@ export default function OpenFiles({ files, activePath, isDirty, onOpenFile, onRe
         { label: 'Quitar de la lista', onClick: () => onRemove(filePath) },
         { separator: true },
         { label: 'Renombrar…', onClick: () => onRename(node) },
-        { label: 'Eliminar archivo', danger: true, onClick: () => onDelete(node) }
+        { label: 'Mover a la Papelera', onClick: () => onDelete(node) }
       ]
     })
   }
