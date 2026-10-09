@@ -44,3 +44,12 @@ export function SearchIcon(props) {
     </svg>
   )
 }
+
+export function ClockIcon(props) {
+  return (
+    <svg {...base} width={12} height={12} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
