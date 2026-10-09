@@ -102,6 +102,12 @@ function buildMenu() {
       label: 'Archivo',
       submenu: [
         {
+          label: 'Nuevo archivo…',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => send('menu:newFile')
+        },
+        { type: 'separator' },
+        {
           label: 'Abrir Carpeta…',
           accelerator: 'CmdOrCtrl+O',
           click: () => send('menu:openFolder')
