@@ -127,6 +127,29 @@ export function registerFsHandlers() {
   )
 
   ipcMain.handle(
+    'fs:trash',
+    wrap((_event, targetPath) => shell.trashItem(targetPath), 'No se pudo mover a la Papelera')
+  )
+
+  ipcMain.handle(
+    'fs:countEntries',
+    wrap(async (_event, dirPath) => {
+      const entries = await fs.readdir(dirPath, { recursive: true, withFileTypes: true })
+      let files = 0
+      let notInTree = 0
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue
+        files++
+        // mismo criterio que buildTree: el árbol oculta lo que empieza con "." y lo que no es markdown
+        const relativePath = path.relative(dirPath, path.join(entry.parentPath, entry.name))
+        const isHidden = relativePath.split(path.sep).some((part) => part.startsWith('.'))
+        if (isHidden || !MD_EXT.has(path.extname(entry.name).toLowerCase())) notInTree++
+      }
+      return { files, notInTree }
+    }, 'No se pudo leer la carpeta')
+  )
+
+  ipcMain.handle(
     'fs:delete',
     wrap(async (_event, targetPath, isDirectory) => {
       await fs.rm(targetPath, { recursive: isDirectory, force: false })

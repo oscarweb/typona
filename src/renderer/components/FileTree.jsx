@@ -87,7 +87,7 @@ export default function FileTree({ tree, activePath, isDirty, onOpenFile, onCrea
     }
     if (node !== tree) {
       items.push({ label: 'Renombrar…', onClick: () => onRename(node) })
-      items.push({ label: 'Eliminar', danger: true, onClick: () => onDelete(node) })
+      items.push({ label: 'Mover a la Papelera', onClick: () => onDelete(node) })
     }
     if (items.length === 0) return
     setMenu({ x: event.clientX, y: event.clientY, items })
