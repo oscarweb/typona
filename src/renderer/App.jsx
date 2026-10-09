@@ -36,12 +36,6 @@ function extractTitles(markdown) {
     .slice(0, MAX_RECENT_TITLES)
 }
 
-function computeWordStats(markdown) {
-  const trimmed = markdown.trim()
-  const words = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length
-  return { words, chars: markdown.length }
-}
-
 function resolveRelativePath(basePath, href) {
   const baseDir = basePath.slice(0, basePath.lastIndexOf('/'))
   return joinRelative(baseDir, href)
@@ -56,7 +50,7 @@ export default function App() {
   const [sidebarTab, setSidebarTab] = useState('files')
   const [headings, setHeadings] = useState([])
   const [isDirty, setIsDirty] = useState(false)
-  const [wordStats, setWordStats] = useState({ words: 0, chars: 0 })
+  const [modifiedAt, setModifiedAt] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
   const [dialog, setDialog] = useState(null)
   const [activeHeadingIndex, setActiveHeadingIndex] = useState(-1)
@@ -103,6 +97,18 @@ export default function App() {
     statusNoticeTimerRef.current = setTimeout(() => setStatusNotice(null), 3000)
   }, [])
 
+  // Fecha de última modificación en disco del archivo activo (barra de estado).
+  const refreshModifiedAt = useCallback(async (path) => {
+    let mtimeMs = null
+    try {
+      const stats = await window.typona.statPath(path)
+      mtimeMs = stats.mtimeMs
+    } catch {
+      // el archivo ya no existe en disco
+    }
+    if (activePathRef.current === path) setModifiedAt(mtimeMs)
+  }, [])
+
   const writeActiveFile = useCallback(async (path, markdown) => {
     const snapshots = diskSnapshotsRef.current
     const previousSnapshot = snapshots.get(path)
@@ -115,13 +121,14 @@ export default function App() {
       if (activePathRef.current === path) {
         setIsDirty(false)
         setExternalChange(null)
+        refreshModifiedAt(path)
       }
     } catch (err) {
       if (previousSnapshot === undefined) snapshots.delete(path)
       else snapshots.set(path, previousSnapshot)
       setErrorMessage(`No se pudo guardar el archivo: ${err.message}`)
     }
-  }, [])
+  }, [refreshModifiedAt])
 
   const handleSave = useCallback(async () => {
     const path = activePathRef.current
@@ -178,7 +185,6 @@ export default function App() {
       setActivePath(path)
       setActiveContent(content)
       setHeadings(parseHeadings(content))
-      setWordStats(computeWordStats(content))
       setIsDirty(hasDraft)
       setExternalChange(nextExternalChange)
     } catch (err) {
@@ -195,7 +201,6 @@ export default function App() {
     draftsRef.current.delete(path)
     setActiveContent(content)
     setHeadings(parseHeadings(content))
-    setWordStats(computeWordStats(content))
     setIsDirty(false)
     setExternalChange(null)
   }, [])
@@ -216,8 +221,10 @@ export default function App() {
       if (diskContent === null) {
         setExternalChange({ type: 'deleted', path: changedPath })
         setIsDirty(true)
+        setModifiedAt(null)
         return
       }
+      refreshModifiedAt(changedPath)
       if (diskContent === diskSnapshotsRef.current.get(changedPath)) {
         // guardado propio, o el archivo reapareció igual a como lo conocíamos
         setExternalChange((prev) => (prev?.type === 'deleted' ? null : prev))
@@ -230,7 +237,7 @@ export default function App() {
       }
       setExternalChange({ type: 'conflict', path: changedPath, diskContent })
     },
-    [applyDiskContent, showStatusNotice]
+    [applyDiskContent, showStatusNotice, refreshModifiedAt]
   )
 
   const reloadFromDisk = useCallback(() => {
@@ -452,7 +459,6 @@ export default function App() {
       setActiveContent('')
       setHeadings([])
       setIsDirty(false)
-      setWordStats({ words: 0, chars: 0 })
       setExternalChange(null)
     }
   }, [])
@@ -651,6 +657,11 @@ export default function App() {
   }, [activePath])
 
   useEffect(() => {
+    if (activePath) refreshModifiedAt(activePath)
+    else setModifiedAt(null)
+  }, [activePath, refreshModifiedAt])
+
+  useEffect(() => {
     return window.typona.onFileChangedOnDisk(handleExternalChange)
   }, [handleExternalChange])
 
@@ -684,7 +695,6 @@ export default function App() {
   const handleMarkdownChange = useCallback((markdown) => {
     setHeadings(parseHeadings(markdown))
     setIsDirty(true)
-    setWordStats(computeWordStats(markdown))
   }, [])
 
   useEffect(() => {
@@ -799,7 +809,7 @@ export default function App() {
                 onLinkClick={handleLinkClick}
               />
             </div>
-            <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} notice={statusNotice} />
+            <StatusBar filePath={activePath} modifiedAt={modifiedAt} isDirty={isDirty} notice={statusNotice} />
           </>
         ) : tree === null && looseFiles.length === 0 ? (
           <RecentList recents={recents} onOpen={openRecent} />
