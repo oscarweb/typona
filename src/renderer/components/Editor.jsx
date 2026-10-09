@@ -77,9 +77,17 @@ function getSelectionMenuItems(openLinkDialog) {
   ]
 }
 
-const EditorInner = forwardRef(function EditorInner({ fileKey, baseDir, initialContent, onMarkdownChange, onLinkClick }, ref) {
+const EditorInner = forwardRef(function EditorInner(
+  { fileKey, baseDir, initialContent, autoFocus, onAutoFocused, onMarkdownChange, onLinkClick },
+  ref
+) {
   const containerRef = useRef(null)
   const markdownRef = useRef(initialContent)
+  // Se leen al montar el editor (que es asíncrono), así que van en refs y no en el closure.
+  const autoFocusRef = useRef(autoFocus)
+  autoFocusRef.current = autoFocus
+  const onAutoFocusedRef = useRef(onAutoFocused)
+  onAutoFocusedRef.current = onAutoFocused
   const [menu, setMenu] = useState(null)
   const [linkDialog, setLinkDialog] = useState(null)
   const [, getInstance] = useInstance()
@@ -129,6 +137,14 @@ const EditorInner = forwardRef(function EditorInner({ fileKey, baseDir, initialC
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
             markdownRef.current = markdown
             onMarkdownChange?.(markdown)
+          })
+          // Archivo recién creado: cursor al final (después del título) listo para escribir.
+          ctx.get(listenerCtx).mounted((mountedCtx) => {
+            if (!autoFocusRef.current) return
+            const view = mountedCtx.get(editorViewCtx)
+            view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)))
+            view.focus()
+            onAutoFocusedRef.current?.()
           })
         })
         .use(commonmark)
