@@ -38,6 +38,11 @@ contextBridge.exposeInMainWorld('typona', {
     ipcRenderer.on('menu:newFile', listener)
     return () => ipcRenderer.removeListener('menu:newFile', listener)
   },
+  onMenuToggleEditMode: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('menu:toggleEditMode', listener)
+    return () => ipcRenderer.removeListener('menu:toggleEditMode', listener)
+  },
   onMenuSave: (callback) => {
     const listener = () => callback()
     ipcRenderer.on('menu:save', listener)

@@ -29,6 +29,7 @@ function parseHeadings(markdown) {
 }
 
 const MAX_RECENT_TITLES = 30
+const READ_MODE_HINT = 'Modo lectura: doble click o ⌘E para editar'
 
 function extractTitles(markdown) {
   return parseHeadings(markdown)
@@ -61,11 +62,14 @@ export default function App() {
   const [statusNotice, setStatusNotice] = useState(null)
   // archivo recién creado: el editor pone el cursor al final apenas lo monta
   const [autoFocusPath, setAutoFocusPath] = useState(null)
+  // Modo lectura (por defecto al abrir) / edición. Ver docs/features/editor/modo-lectura.md
+  const [isEditing, setIsEditing] = useState(false)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
   const activePathRef = useRef(null)
   const isDirtyRef = useRef(false)
+  const isEditingRef = useRef(false)
   const draftsRef = useRef(new Map())
   // path -> último contenido que sabemos que está en disco (al abrir, recargar o guardar).
   // Sirve para distinguir cambios hechos por otro programa de los guardados propios.
@@ -79,6 +83,12 @@ export default function App() {
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
+
+  useEffect(() => {
+    isEditingRef.current = isEditing
+    // la ayuda de "cómo editar" ya no aplica una vez en edición
+    if (isEditing) setStatusNotice((notice) => (notice === READ_MODE_HINT ? null : notice))
+  }, [isEditing])
 
   useEffect(() => {
     window.typona.getRecents().then(setRecents).catch(() => {})
@@ -98,6 +108,23 @@ export default function App() {
     setStatusNotice(text)
     statusNoticeTimerRef.current = setTimeout(() => setStatusNotice(null), 3000)
   }, [])
+
+  const toggleEditMode = useCallback(() => {
+    if (!activePathRef.current) return
+    setIsEditing((prev) => !prev)
+  }, [])
+
+  // En modo lectura tipear no hace nada: se avisa cómo pasar a edición.
+  useEffect(() => {
+    const handler = (event) => {
+      if (!activePathRef.current || isEditingRef.current) return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.key.length !== 1) return
+      if (event.target.closest?.('input, textarea, .modal-overlay')) return
+      showStatusNotice(READ_MODE_HINT)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showStatusNotice])
 
   // Fecha de última modificación en disco del archivo activo (barra de estado).
   const refreshModifiedAt = useCallback(async (path) => {
@@ -188,6 +215,7 @@ export default function App() {
       setActiveContent(content)
       setHeadings(parseHeadings(content))
       setIsDirty(hasDraft)
+      setIsEditing(false)
       setExternalChange(nextExternalChange)
     } catch (err) {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
@@ -699,13 +727,15 @@ export default function App() {
     const offOpen = window.typona.onMenuOpenFolder(openFolder)
     const offOpenFile = window.typona.onMenuOpenFile(openFilesDialog)
     const offSave = window.typona.onMenuSave(handleSave)
+    const offToggleEditMode = window.typona.onMenuToggleEditMode(toggleEditMode)
     return () => {
+      offToggleEditMode()
       offNewFile()
       offOpen()
       offOpenFile()
       offSave()
     }
-  }, [newFile, openFolder, openFilesDialog, handleSave])
+  }, [newFile, openFolder, openFilesDialog, handleSave, toggleEditMode])
 
   useEffect(() => {
     return window.typona.onLoadFolder(loadFolder)
@@ -866,13 +896,26 @@ export default function App() {
                 fileKey={activePath}
                 baseDir={activePath.slice(0, activePath.lastIndexOf('/'))}
                 initialContent={activeContent}
+                editable={isEditing}
                 autoFocus={autoFocusPath === activePath}
-                onAutoFocused={() => setAutoFocusPath(null)}
+                onAutoFocused={() => {
+                  setAutoFocusPath(null)
+                  setIsEditing(true)
+                }}
+                onRequestEdit={() => setIsEditing(true)}
+                onRequestRead={() => setIsEditing(false)}
                 onMarkdownChange={handleMarkdownChange}
                 onLinkClick={handleLinkClick}
               />
             </div>
-            <StatusBar filePath={activePath} modifiedAt={modifiedAt} isDirty={isDirty} notice={statusNotice} />
+            <StatusBar
+              filePath={activePath}
+              modifiedAt={modifiedAt}
+              isDirty={isDirty}
+              isEditing={isEditing}
+              onToggleMode={toggleEditMode}
+              notice={statusNotice}
+            />
           </>
         ) : tree === null && looseFiles.length === 0 ? (
           <RecentList recents={recents} onOpen={openRecent} />

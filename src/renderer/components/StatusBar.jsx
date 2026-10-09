@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
-import { ClockIcon } from './Icons.jsx'
+import { ClockIcon, EyeIcon, PencilIcon } from './Icons.jsx'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -67,7 +67,7 @@ function FilePath({ path }) {
   )
 }
 
-export default function StatusBar({ filePath, modifiedAt, isDirty, notice }) {
+export default function StatusBar({ filePath, modifiedAt, isDirty, isEditing, onToggleMode, notice }) {
   return (
     <div className="status-bar">
       <span className="status-left">
@@ -84,6 +84,19 @@ export default function StatusBar({ filePath, modifiedAt, isDirty, notice }) {
       </span>
       <span className="status-right">
         {notice && <span className="status-notice">{notice}</span>}
+        <button
+          type="button"
+          className={`status-mode${isEditing ? ' editing' : ''}`}
+          onClick={onToggleMode}
+          title={
+            isEditing
+              ? 'Click, ⌘E o Escape para volver a modo lectura'
+              : 'Click, ⌘E o doble click en el texto para editar'
+          }
+        >
+          {isEditing ? <PencilIcon /> : <EyeIcon />}
+          Modo: {isEditing ? 'Edición' : 'Lectura'}
+        </button>
         <span className={`status-dot${isDirty ? ' dirty' : ''}`}>
           {isDirty ? '● Sin guardar' : '✓ Guardado'}
         </span>

@@ -54,6 +54,14 @@ function createWindow(folderToLoad) {
     }
   })
 
+  // Red de seguridad: los links del documento los maneja el renderer. La ventana nunca navega
+  // fuera de la app ni abre ventanas nuevas (p. ej. un <a href="x.md"> seguido por el navegador).
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event, url) => {
+    // recargar (misma URL, incluido el hot reload de Vite en dev) sí se permite
+    if (url !== win.webContents.getURL()) event.preventDefault()
+  })
+
   let allowClose = false
 
   win.on('close', (event) => {
@@ -137,6 +145,12 @@ function buildMenu() {
     {
       label: 'Ver',
       submenu: [
+        {
+          label: 'Alternar modo edición',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => send('menu:toggleEditMode')
+        },
+        { type: 'separator' },
         { role: 'reload' },
         ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' }])
       ]
