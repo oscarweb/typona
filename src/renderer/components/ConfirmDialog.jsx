@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function ConfirmDialog({ message, danger, onConfirm, onCancel }) {
+export default function ConfirmDialog({ message, danger, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
   return (
     <div className="modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
       <div className="modal-box">
@@ -13,7 +13,7 @@ export default function ConfirmDialog({ message, danger, onConfirm, onCancel }) 
             autoFocus
             onClick={onConfirm}
           >
-            Confirmar
+            {confirmLabel}
           </button>
         </div>
       </div>

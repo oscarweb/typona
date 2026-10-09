@@ -19,6 +19,7 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { history } from '@milkdown/plugin-history'
 import { Milkdown, useEditor, useInstance, MilkdownProvider } from '@milkdown/react'
 import { TextSelection } from '@milkdown/prose/state'
+import { replaceAll } from '@milkdown/utils'
 import ContextMenu from './ContextMenu.jsx'
 import LinkDialog from './LinkDialog.jsx'
 import { joinRelative, toAssetUrl } from '../pathUtils.js'
@@ -97,9 +98,25 @@ const EditorInner = forwardRef(function EditorInner({ fileKey, baseDir, initialC
         const el = containerRef.current
         if (!el || !anchorId) return
         el.querySelector(`#${CSS.escape(anchorId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      },
+      // Reemplaza el documento sin recrear el editor. Con flush se crea un estado nuevo:
+      // no pasa por el listener (no marca cambios sin guardar) y el historial de deshacer
+      // arranca de cero, como si el archivo se hubiera abierto de nuevo.
+      replaceContent: (markdown) => {
+        const editor = getInstance()
+        if (!editor) return
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          const { from } = view.state.selection
+          replaceAll(markdown, true)(ctx)
+          const { state } = view
+          const pos = Math.min(from, state.doc.content.size)
+          view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(pos))))
+        })
+        markdownRef.current = markdown
       }
     }),
-    []
+    [getInstance]
   )
 
   useEditor(

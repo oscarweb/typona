@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('typona', {
   deleteEntry: (targetPath, isDirectory) => ipcRenderer.invoke('fs:delete', targetPath, isDirectory),
   openLink: (href, basePath) => ipcRenderer.invoke('shell:openLink', href, basePath),
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  watchFile: (filePath) => ipcRenderer.invoke('watch:file', filePath ?? null),
 
   onMenuOpenFolder: (callback) => {
     const listener = () => callback()
@@ -37,6 +38,11 @@ contextBridge.exposeInMainWorld('typona', {
     const listener = (_event, folderPath) => callback(folderPath)
     ipcRenderer.on('app:loadFolder', listener)
     return () => ipcRenderer.removeListener('app:loadFolder', listener)
+  },
+  onFileChangedOnDisk: (callback) => {
+    const listener = (_event, filePath) => callback(filePath)
+    ipcRenderer.on('file:changedOnDisk', listener)
+    return () => ipcRenderer.removeListener('file:changedOnDisk', listener)
   },
   onBeforeClose: (callback) => {
     const listener = () => callback()
