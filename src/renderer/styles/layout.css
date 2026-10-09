@@ -418,6 +418,33 @@
   color: var(--link-color);
 }
 
+.status-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.status-mode:hover {
+  color: var(--sidebar-text);
+}
+
+.status-mode.editing {
+  color: var(--link-color);
+}
+
+/* La interfaz no se selecciona: Cmd+A / "Seleccionar todo" abarcan solo el documento */
+.sidebar,
+.status-bar,
+.sidebar-tabs {
+  user-select: none;
+}
+
 .error-banner {
   flex-shrink: 0;
   display: flex;
@@ -566,8 +593,11 @@
   border-radius: 4px;
 }
 
-/* sin anillo de foco (Chromium usa el color de acento del sistema); queda el borde base */
-.modal-box input:focus {
+/* sin anillo de foco (Chromium usa el color de acento del sistema); queda el borde base.
+   Aplica a los inputs y a los botones de todos los modales (el botón por defecto ya se
+   distingue por su color). */
+.modal-box input:focus,
+.modal-actions button:focus {
   outline: none;
 }
 
