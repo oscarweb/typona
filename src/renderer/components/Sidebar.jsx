@@ -13,6 +13,8 @@ export default function Sidebar({
   onOpenFile,
   onOpenFolder,
   onOpenFileDialog,
+  onNewFile,
+  onCreateSibling,
   onCreateFile,
   onCreateFolder,
   onRename,
@@ -40,6 +42,9 @@ export default function Sidebar({
       </div>
 
       <div className="open-buttons">
+        <button className="open-folder-btn new-file-btn" onClick={onNewFile}>
+          Nuevo archivo…
+        </button>
         <button className="open-folder-btn" onClick={onOpenFolder}>
           Abrir Carpeta…
         </button>
@@ -56,6 +61,7 @@ export default function Sidebar({
               activePath={activePath}
               isDirty={isDirty}
               onOpenFile={onOpenFile}
+              onCreateSibling={onCreateSibling}
               onRename={onRename}
               onDelete={onDelete}
               onRemove={onRemoveLooseFile}
