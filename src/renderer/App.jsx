@@ -63,12 +63,18 @@ export default function App() {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [recents, setRecents] = useState([])
   const [updateInfo, setUpdateInfo] = useState(null)
+  const [externalChange, setExternalChange] = useState(null)
+  const [statusNotice, setStatusNotice] = useState(null)
 
   const editorRef = useRef(null)
   const editorScrollRef = useRef(null)
   const activePathRef = useRef(null)
   const isDirtyRef = useRef(false)
   const draftsRef = useRef(new Map())
+  // path -> último contenido que sabemos que está en disco (al abrir, recargar o guardar).
+  // Sirve para distinguir cambios hechos por otro programa de los guardados propios.
+  const diskSnapshotsRef = useRef(new Map())
+  const statusNoticeTimerRef = useRef(null)
 
   useEffect(() => {
     activePathRef.current = activePath
@@ -91,19 +97,56 @@ export default function App() {
       .catch(() => {})
   }, [])
 
+  const showStatusNotice = useCallback((text) => {
+    clearTimeout(statusNoticeTimerRef.current)
+    setStatusNotice(text)
+    statusNoticeTimerRef.current = setTimeout(() => setStatusNotice(null), 3000)
+  }, [])
+
+  const writeActiveFile = useCallback(async (path, markdown) => {
+    const snapshots = diskSnapshotsRef.current
+    const previousSnapshot = snapshots.get(path)
+    // Se actualiza antes de escribir: el watcher puede avisar del propio guardado
+    // antes de que termine el await, y tiene que reconocerlo como "ya conocido".
+    snapshots.set(path, markdown)
+    try {
+      await window.typona.saveFile(path, markdown)
+      draftsRef.current.delete(path)
+      if (activePathRef.current === path) {
+        setIsDirty(false)
+        setExternalChange(null)
+      }
+    } catch (err) {
+      if (previousSnapshot === undefined) snapshots.delete(path)
+      else snapshots.set(path, previousSnapshot)
+      setErrorMessage(`No se pudo guardar el archivo: ${err.message}`)
+    }
+  }, [])
+
   const handleSave = useCallback(async () => {
     const path = activePathRef.current
     const editor = editorRef.current
     if (!path || !editor) return
+    const markdown = editor.getMarkdown()
+    const snapshot = diskSnapshotsRef.current.get(path)
+    let diskContent = null
     try {
-      const markdown = editor.getMarkdown()
-      await window.typona.saveFile(path, markdown)
-      draftsRef.current.delete(path)
-      setIsDirty(false)
-    } catch (err) {
-      setErrorMessage(`No se pudo guardar el archivo: ${err.message}`)
+      diskContent = await window.typona.readFile(path)
+    } catch {
+      // el archivo ya no existe en disco: guardar lo vuelve a crear
     }
-  }, [])
+    if (diskContent !== null && snapshot !== undefined && diskContent !== snapshot) {
+      setDialog({
+        type: 'confirm',
+        message: 'Otro programa modificó este archivo desde que lo abriste. ¿Sobrescribirlo con tu versión?',
+        danger: true,
+        confirmLabel: 'Sobrescribir',
+        onConfirm: () => writeActiveFile(path, markdown)
+      })
+      return
+    }
+    await writeActiveFile(path, markdown)
+  }, [writeActiveFile])
 
   const openFile = useCallback(async (path) => {
     const prevPath = activePathRef.current
@@ -114,16 +157,95 @@ export default function App() {
     }
     try {
       const hasDraft = draftsRef.current.has(path)
-      const content = hasDraft ? draftsRef.current.get(path) : await window.typona.readFile(path)
+      let diskContent = null
+      try {
+        diskContent = await window.typona.readFile(path)
+      } catch (err) {
+        if (!hasDraft) throw err
+      }
+      const content = hasDraft ? draftsRef.current.get(path) : diskContent
+      const snapshots = diskSnapshotsRef.current
+      let nextExternalChange = null
+      if (!hasDraft) {
+        snapshots.set(path, diskContent)
+      } else if (diskContent === null) {
+        nextExternalChange = { type: 'deleted', path }
+      } else if (!snapshots.has(path)) {
+        snapshots.set(path, diskContent)
+      } else if (diskContent !== snapshots.get(path)) {
+        nextExternalChange = { type: 'conflict', path, diskContent }
+      }
       setActivePath(path)
       setActiveContent(content)
       setHeadings(parseHeadings(content))
       setWordStats(computeWordStats(content))
       setIsDirty(hasDraft)
+      setExternalChange(nextExternalChange)
     } catch (err) {
       setErrorMessage(`No se pudo abrir el archivo: ${err.message}`)
     }
   }, [])
+
+  const applyDiskContent = useCallback((path, content) => {
+    const scroller = editorScrollRef.current
+    const scrollTop = scroller?.scrollTop ?? 0
+    editorRef.current?.replaceContent(content)
+    if (scroller) scroller.scrollTop = scrollTop
+    diskSnapshotsRef.current.set(path, content)
+    draftsRef.current.delete(path)
+    setActiveContent(content)
+    setHeadings(parseHeadings(content))
+    setWordStats(computeWordStats(content))
+    setIsDirty(false)
+    setExternalChange(null)
+  }, [])
+
+  const handleExternalChange = useCallback(
+    async (changedPath) => {
+      if (changedPath !== activePathRef.current) return
+      const readDisk = () => window.typona.readFile(changedPath).catch(() => null)
+      let diskContent = await readDisk()
+      if (diskContent === null) {
+        // algunos programas borran y vuelven a escribir el archivo; se espera un poco
+        // antes de darlo por eliminado
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        diskContent = await readDisk()
+      }
+      if (changedPath !== activePathRef.current) return
+
+      if (diskContent === null) {
+        setExternalChange({ type: 'deleted', path: changedPath })
+        setIsDirty(true)
+        return
+      }
+      if (diskContent === diskSnapshotsRef.current.get(changedPath)) {
+        // guardado propio, o el archivo reapareció igual a como lo conocíamos
+        setExternalChange((prev) => (prev?.type === 'deleted' ? null : prev))
+        return
+      }
+      if (!isDirtyRef.current) {
+        applyDiskContent(changedPath, diskContent)
+        showStatusNotice('↻ Actualizado desde disco')
+        return
+      }
+      setExternalChange({ type: 'conflict', path: changedPath, diskContent })
+    },
+    [applyDiskContent, showStatusNotice]
+  )
+
+  const reloadFromDisk = useCallback(() => {
+    if (externalChange?.type !== 'conflict') return
+    applyDiskContent(externalChange.path, externalChange.diskContent)
+    showStatusNotice('↻ Actualizado desde disco')
+  }, [externalChange, applyDiskContent, showStatusNotice])
+
+  const keepLocalChanges = useCallback(() => {
+    if (externalChange?.type !== 'conflict') return
+    // se toma la versión de disco como "conocida": guardar ya no vuelve a advertir,
+    // salvo que el archivo cambie otra vez
+    diskSnapshotsRef.current.set(externalChange.path, externalChange.diskContent)
+    setExternalChange(null)
+  }, [externalChange])
 
   const handleLinkClick = useCallback(
     async (href) => {
@@ -316,6 +438,12 @@ export default function App() {
         : draftPath === targetPath
       if (draftMatches) draftsRef.current.delete(draftPath)
     }
+    for (const snapshotPath of [...diskSnapshotsRef.current.keys()]) {
+      const snapshotMatches = isDirectory
+        ? snapshotPath === targetPath || snapshotPath.startsWith(`${targetPath}/`)
+        : snapshotPath === targetPath
+      if (snapshotMatches) diskSnapshotsRef.current.delete(snapshotPath)
+    }
     const path = activePathRef.current
     if (!path) return
     const matches = isDirectory ? path === targetPath || path.startsWith(`${targetPath}/`) : path === targetPath
@@ -325,6 +453,7 @@ export default function App() {
       setHeadings([])
       setIsDirty(false)
       setWordStats({ words: 0, chars: 0 })
+      setExternalChange(null)
     }
   }, [])
 
@@ -396,6 +525,17 @@ export default function App() {
                 draftsRef.current.delete(draftPath)
               }
             }
+            const snapshots = diskSnapshotsRef.current
+            for (const snapshotPath of [...snapshots.keys()]) {
+              if (snapshotPath === node.path) {
+                snapshots.set(newPath, snapshots.get(snapshotPath))
+                snapshots.delete(snapshotPath)
+              } else if (node.type === 'dir' && snapshotPath.startsWith(`${node.path}/`)) {
+                snapshots.set(snapshotPath.replace(node.path, newPath), snapshots.get(snapshotPath))
+                snapshots.delete(snapshotPath)
+              }
+            }
+            setExternalChange(null)
             if (activePathRef.current === node.path) {
               setActivePath(newPath)
             } else if (node.type === 'dir' && activePathRef.current?.startsWith(`${node.path}/`)) {
@@ -447,6 +587,14 @@ export default function App() {
   useEffect(() => {
     return window.typona.onLoadFolder(loadFolder)
   }, [loadFolder])
+
+  useEffect(() => {
+    window.typona.watchFile(activePath).catch(() => {})
+  }, [activePath])
+
+  useEffect(() => {
+    return window.typona.onFileChangedOnDisk(handleExternalChange)
+  }, [handleExternalChange])
 
   useEffect(() => {
     const handler = (event) => {
@@ -566,6 +714,21 @@ export default function App() {
             <button onClick={() => setErrorMessage(null)}>✕</button>
           </div>
         )}
+        {externalChange?.type === 'conflict' && (
+          <div className="external-banner">
+            <span>Otro programa modificó este archivo y vos tenés cambios sin guardar.</span>
+            <span className="external-banner-actions">
+              <button onClick={reloadFromDisk}>Recargar (descartar mis cambios)</button>
+              <button onClick={keepLocalChanges}>Mantener mis cambios</button>
+            </span>
+          </div>
+        )}
+        {externalChange?.type === 'deleted' && (
+          <div className="external-banner">
+            <span>Este archivo fue eliminado o movido fuera de Typona. Guardá (⌘S) para volver a crearlo.</span>
+            <button onClick={() => setExternalChange(null)}>✕</button>
+          </div>
+        )}
         {activePath ? (
           <>
             <div className="editor-scroll" ref={editorScrollRef}>
@@ -578,7 +741,7 @@ export default function App() {
                 onLinkClick={handleLinkClick}
               />
             </div>
-            <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} />
+            <StatusBar words={wordStats.words} chars={wordStats.chars} isDirty={isDirty} notice={statusNotice} />
           </>
         ) : tree === null && looseFiles.length === 0 ? (
           <RecentList recents={recents} onOpen={openRecent} />
@@ -602,6 +765,7 @@ export default function App() {
         <ConfirmDialog
           message={dialog.message}
           danger={dialog.danger}
+          confirmLabel={dialog.confirmLabel}
           onConfirm={() => {
             setDialog(null)
             dialog.onConfirm()
