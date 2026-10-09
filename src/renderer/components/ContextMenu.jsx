@@ -30,7 +30,8 @@ export default function ContextMenu({ x, y, items, onClose }) {
   }, [onClose])
 
   return (
-    <div className="context-menu" style={position} ref={menuRef}>
+    // preventDefault en mousedown: clickear un ítem no le saca el foco ni la selección al documento
+    <div className="context-menu" style={position} ref={menuRef} onMouseDown={(event) => event.preventDefault()}>
       {items.map((item, index) =>
         item.separator ? (
           <div className="context-menu-separator" key={`sep-${index}`} />
